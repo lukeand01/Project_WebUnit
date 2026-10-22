@@ -75,7 +75,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', activeFolder: 'Assets', expandedFolders: new Set(['Assets']), originals: new Map(), edits: new Map(), fileSearch: '', unityConfigured: false, user: null };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], assetsRoot: 'Assets', active: '', activeFolder: 'Assets', expandedFolders: new Set(['Assets']), originals: new Map(), edits: new Map(), fileSearch: '', unityConfigured: false, user: null };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   let monacoEditor = null;
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -137,7 +137,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       ['MonoBehaviour','class','Unity base class for components'],['GameObject','class','Unity scene object'],['Transform','class','Position, rotation, and scale'],['Rigidbody','class','3D physics body'],['Rigidbody2D','class','2D physics body'],['Collider','class','3D collider'],['Collider2D','class','2D collider'],['Vector2','class','2D vector'],['Vector3','class','3D vector'],['Quaternion','class','Rotation'],['Mathf','class','Unity math helpers'],['Time','class','Frame and time values'],['Input','class','Input system API'],['Debug','class','Logging and debug helpers'],['Camera','class','Scene camera'],['Animator','class','Animation controller'],['List','class','System.Collections.Generic list'],['Dictionary','class','System.Collections.Generic dictionary'],['IEnumerator','class','Coroutine return type'],['SerializeField','property','Serialize a private field'],['GetComponent','method','Get a component from this object'],['Instantiate','method','Create a Unity object'],['Destroy','method','Destroy a Unity object'],['StartCoroutine','method','Start a coroutine'],['Update','method','Called once per frame'],['FixedUpdate','method','Called on the physics timestep'],['Awake','method','Called when the component loads'],['Start','method','Called before the first frame'],['OnEnable','method','Called when the component is enabled'],['OnDisable','method','Called when the component is disabled'],['OnTriggerEnter2D','method','2D trigger callback'],['OnCollisionEnter2D','method','2D collision callback'],['Mathf.Clamp','method','Clamp a value to a range'],['Debug.Log','method','Write to the Unity console'],['Time.deltaTime','field','Time since the last frame'],['if','keyword','Conditional statement'],['else','keyword','Alternative branch'],['for','keyword','For loop'],['foreach','keyword','Collection loop'],['while','keyword','While loop'],['return','keyword','Return from a method'],['new','keyword','Create an object'],['public','keyword','Public access modifier'],['private','keyword','Private access modifier'],['protected','keyword','Protected access modifier'],['class','keyword','Declare a class'],['void','keyword','Method with no return value'],['string','keyword','Text type'],['int','keyword','Integer type'],['float','keyword','Floating-point type'],['bool','keyword','Boolean type'],['var','keyword','Infer a local variable type']
     ];
     const seen = new Set(items.map(item => item[0]));
-    for (const file of state.files) if (/^Assets\/.*\.cs$/i.test(file.path)) { const name = file.path.split('/').pop().replace(/\.cs$/i, ''); if (/^[A-Za-z_]\w*$/.test(name) && !seen.has(name)) { items.push([name, 'class', `Project script · ${file.path}`]); seen.add(name); } }
+    for (const file of state.files) if (file.path.toLowerCase().startsWith(`${state.assetsRoot}/`.toLowerCase()) && /\.cs$/i.test(file.path)) { const name = file.path.split('/').pop().replace(/\.cs$/i, ''); if (/^[A-Za-z_]\w*$/.test(name) && !seen.has(name)) { items.push([name, 'class', `Project script · ${file.path}`]); seen.add(name); } }
     if (monacoEditor) {
       const text = monacoEditor.getValue();
       for (const match of text.matchAll(/\b(?:public|private|protected|internal)\s+(?:(?:static|readonly|const|async|virtual|override)\s+)*[\w<>,.?\[\]]+\s+(\w+)\s*\(/g)) if (!seen.has(match[1])) { items.push([match[1], 'method', 'Method in this script']); seen.add(match[1]); }
@@ -178,12 +178,13 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     const tree = $('tree'); tree.replaceChildren();
     const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'ASSETS'; tree.append(label);
     const query = state.fileSearch.trim().toLowerCase();
-    const assetsFiles = state.files.filter(file => /^Assets\//i.test(file.path));
+    const assetsPrefix = `${state.assetsRoot}/`;
+    const assetsFiles = state.files.filter(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()));
     const shown = assetsFiles.filter(file => !query || file.path.toLowerCase().includes(query)).sort((a, b) => a.path.localeCompare(b.path));
     const folders = new Map(); const filesAt = new Map();
     for (const file of shown) {
-      const parts = file.path.split('/'); let parent = 'Assets';
-      for (const part of parts.slice(1, -1)) { const path = `${parent}/${part}`; if (!folders.has(parent)) folders.set(parent, new Set()); folders.get(parent).add(path); parent = path; }
+      const parts = file.path.split('/'); let parent = state.assetsRoot;
+      for (const part of parts.slice(state.assetsRoot.split('/').length, -1)) { const path = `${parent}/${part}`; if (!folders.has(parent)) folders.set(parent, new Set()); folders.get(parent).add(path); parent = path; }
       if (!filesAt.has(parent)) filesAt.set(parent, []); filesAt.get(parent).push(file);
     }
     const renderFolder = (folder, depth = 0) => {
@@ -204,13 +205,13 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row);
       }
     };
-    if (shown.length) renderFolder('Assets');
+    if (shown.length) renderFolder(state.assetsRoot);
     else { const empty = document.createElement('div'); empty.className = 'tree-label'; empty.textContent = query ? 'NO MATCHING ASSETS FILES' : 'NO ASSETS FOLDER FOUND'; tree.append(empty); }
   }
   async function openFile(filePath) {
     try {
       if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute|md|xml|yaml|yml|meta|asset|unity|prefab|mat|anim|controller)$/i.test(filePath)) { showToast('This file is listed, but this editor only opens text-based project files.'); return; }
-      state.active = filePath; state.activeFolder = filePath.slice(0, filePath.lastIndexOf('/')) || 'Assets';
+      state.active = filePath; state.activeFolder = filePath.slice(0, filePath.lastIndexOf('/')) || state.assetsRoot;
       const folders = state.activeFolder.split('/'); let parent = folders[0]; for (const part of folders.slice(1)) { parent += `/${part}`; state.expandedFolders.add(parent); }
       refreshTree();
       let content;
@@ -226,7 +227,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
-    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.activeFolder = 'Assets'; state.expandedFolders = new Set(['Assets']); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.active = '';
+    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.assetsRoot = 'Assets'; state.activeFolder = 'Assets'; state.expandedFolders = new Set(['Assets']); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.active = '';
     renderRecentCommit(null);
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
@@ -239,10 +240,16 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/tree?ref=${encodeURIComponent(repo.default_branch)}`)
       ]);
       state.branches = branchNames; state.files = tree.tree;
+      const paths = new Set(state.files.map(file => file.path.toLowerCase()));
+      const candidates = [...new Set(state.files.map(file => { const parts = file.path.split('/'); const assetsIndex = parts.findIndex(part => part.toLowerCase() === 'assets'); return assetsIndex >= 0 ? parts.slice(0, assetsIndex + 1).join('/') : null; }).filter(Boolean))];
+      const scoreProjectRoot = assetsPath => { const projectRoot = assetsPath.slice(0, -(assetsPath.split('/').pop().length + 1)); const prefix = projectRoot ? `${projectRoot}/` : ''; return Number([...paths].some(path => path.startsWith(`${prefix}packages/`))) + Number([...paths].some(path => path.startsWith(`${prefix}projectsettings/`))); };
+      candidates.sort((a, b) => scoreProjectRoot(b) - scoreProjectRoot(a) || b.split('/').length - a.split('/').length);
+      state.assetsRoot = candidates[0] || 'Assets'; state.activeFolder = state.assetsRoot; state.expandedFolders = new Set([state.assetsRoot]);
       if (tree.truncated) showToast('GitHub returned a partial file tree for this large repository.');
       refreshTree();
       await api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/commits?ref=${encodeURIComponent(state.branch)}`).then(commits => renderRecentCommit(commits[0])).catch(error => { renderRecentCommit(null); showToast(`Recent commit could not load: ${error.message}`); });
-      const first = state.files.find(file => /^Assets\/.*\.cs$/i.test(file.path)) || state.files.find(file => /^Assets\/.*\.(json|txt|asmdef)$/i.test(file.path));
+      const assetsPrefix = `${state.assetsRoot}/`;
+      const first = state.files.find(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()) && /\.cs$/i.test(file.path)) || state.files.find(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()) && /\.(json|txt|asmdef)$/i.test(file.path));
       if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
     } catch (error) { showToast(error.message); }
   }
@@ -297,7 +304,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     state.user = session.user || null;
     showWorkspace();
     $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
-    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const match = state.files.find(file => /^Assets\//i.test(file.path) && file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
+    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const match = state.files.find(file => file.path.toLowerCase().startsWith(`${state.assetsRoot}/`.toLowerCase()) && file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
     $('createFileBtn').addEventListener('click', openCreateFile);
     initializeMonaco();
     refreshTree();
