@@ -84,7 +84,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), unityConfigured: false };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), expandedFolders: new Set(), treeInitialized: false, unityConfigured: false };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
   async function api(url, options = {}) {
@@ -113,12 +113,44 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'FILES'; tree.append(label);
     const allowed = state.files.filter(file => /\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(file.path));
     const shown = allowed.length ? allowed : state.files;
-    for (const file of shown.slice(0, 800)) {
-      const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = file.path;
-      const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
-      const name = document.createElement('span'); name.textContent = file.path; name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row);
+    const root = { folders: new Map(), files: [] };
+    for (const file of shown) {
+      const parts = file.path.split('/'); let node = root; let folderPath = '';
+      for (const part of parts.slice(0, -1)) {
+        folderPath = folderPath ? `${folderPath}/${part}` : part;
+        if (!node.folders.has(part)) node.folders.set(part, { path: folderPath, folders: new Map(), files: [] });
+        node = node.folders.get(part);
+      }
+      node.files.push(file);
     }
-    if (shown.length > 800) { const more = document.createElement('div'); more.className = 'tree-label'; more.textContent = `${shown.length - 800} MORE FILES`; tree.append(more); }
+    if (!state.treeInitialized) {
+      const expandAll = node => { for (const folder of node.folders.values()) { state.expandedFolders.add(folder.path); expandAll(folder); } };
+      expandAll(root); state.treeInitialized = true;
+    }
+    let rendered = 0;
+    const renderNode = (node, depth = 0) => {
+      if (rendered >= 800) return;
+      for (const folder of [...node.folders.values()].sort((a, b) => a.path.localeCompare(b.path))) {
+        if (rendered >= 800) return;
+        const open = state.expandedFolders.has(folder.path);
+        const row = document.createElement('div'); row.className = 'tree-row'; row.title = folder.path; row.style.paddingLeft = `${8 + depth * 14}px`; row.style.cursor = 'pointer';
+        const chevron = document.createElement('span'); chevron.className = 'chev'; chevron.textContent = open ? '⌄' : '›';
+        const icon = document.createElement('span'); icon.className = 'folder'; icon.textContent = '▰';
+        const name = document.createElement('span'); name.textContent = folder.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis';
+        row.append(chevron, icon, name); row.addEventListener('click', () => { if (open) state.expandedFolders.delete(folder.path); else state.expandedFolders.add(folder.path); refreshTree(); }); tree.append(row);
+        if (open) renderNode(folder, depth + 1);
+      }
+      for (const file of node.files.sort((a, b) => a.path.localeCompare(b.path))) {
+        if (rendered >= 800) return;
+        const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = file.path; row.style.paddingLeft = `${8 + depth * 14}px`;
+        const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
+        const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row); rendered++;
+      }
+    };
+    renderNode(root);
+    const countVisible = node => node.files.length + [...node.folders.values()].reduce((sum, folder) => sum + (state.expandedFolders.has(folder.path) ? countVisible(folder) : 0), 0);
+    const visibleFiles = countVisible(root);
+    if (visibleFiles > rendered) { const more = document.createElement('div'); more.className = 'tree-label'; more.textContent = `${visibleFiles - rendered} MORE FILES`; tree.append(more); }
   }
   async function openFile(filePath) {
     try {
@@ -136,9 +168,10 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
-    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.edits.clear(); state.originals.clear(); state.active = '';
+    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.edits.clear(); state.originals.clear(); state.active = ''; state.expandedFolders.clear(); state.treeInitialized = false;
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
+    document.querySelector('.top-project span:nth-child(2)').textContent = repo.name;
     document.querySelector('.branch-info b').textContent = `${repo.default_branch}　⌄`;
     document.querySelector('.branch-pill').textContent = `⌥ ${repo.default_branch}`;
     try {
@@ -214,7 +247,6 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       finally { updateChanges(); }
     });
     $('discardBtn').addEventListener('click', () => { for (const file of dirtyFiles()) state.edits.set(file.path, state.originals.get(file.path)); if (state.active) editor.value = state.edits.get(state.active) || ''; updateGutter(); updateChanges(); showToast('Local edits discarded.'); });
-    const originalImport = $('importRepo'); originalImport.replaceWith(originalImport.cloneNode(true));
     const importButton = $('importBtn'); importButton.replaceWith(importButton.cloneNode(true));
     $('importBtn').addEventListener('click', openRepoPicker);
     const connectNew = $('connectBtn').cloneNode(true); $('connectBtn').replaceWith(connectNew); connectNew.textContent = '⌘　 Switch repository'; connectNew.addEventListener('click', openRepoPicker);
