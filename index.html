@@ -16,6 +16,7 @@
     @media(max-width:1000px){.layout{grid-template-columns:200px minmax(300px,1fr) 270px}.brand{min-width:175px}.topbar{gap:12px;padding:0 13px}.top-project{padding-left:12px}}@media(max-width:800px){body{overflow:auto}.app{height:auto;min-height:100vh;min-width:0;grid-template-rows:54px 1fr}.top-project .crumb-muted,.saved{display:none}.layout{grid-template-columns:180px minmax(0,1fr)}.inspector{display:none}.editor{min-height:65vh}.brand{min-width:auto}.top-project{border:0;padding-left:4px}.top-tag{display:none}}
     .editor{display:flex;padding:18px 0 24px;gap:0}.gutter{width:53px;flex:none;text-align:right;padding-right:16px;color:#545864;user-select:none;white-space:pre;line-height:1.85;font:12px/1.85 var(--mono)}.source-editor{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:#c8cad2;padding:0 25px 0 0;font:12px/1.85 var(--mono);white-space:pre;tab-size:4;overflow:auto}.source-editor:focus{outline:0}.workspace-hidden{display:none!important}.auth-gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(ellipse at 52% 42%,#20251c 0,#14151a 44%,#101115 78%)}.auth-card{width:min(440px,calc(100vw - 36px));padding:36px;border:1px solid #343740;border-radius:13px;background:#191b20;box-shadow:0 30px 100px #0008}.auth-brand{display:flex;align-items:center;gap:9px;font:700 20px var(--display);margin-bottom:36px}.auth-brand .mark{width:29px;height:29px}.auth-card h1{font:600 27px/1.2 var(--display);letter-spacing:-.5px;margin:0 0 10px}.auth-card p{color:#9b9fab;line-height:1.65;font-size:13px;margin:0 0 24px}.github-login{height:43px;width:100%;border:0;border-radius:6px;background:var(--green);color:#151a10;font-weight:700}.github-login:hover{background:#c9ff8b}.auth-foot{margin-top:14px;color:#777d88;font-size:10px;text-align:center}.auth-error{color:#f17b7b;font-size:11px;margin:0 0 14px}.repos-select,.branch-select{width:100%;height:36px;border:1px solid #3a3d47;border-radius:5px;background:#121318;padding:0 9px;color:#e5e7ee}
     .editor.monaco-active{display:block;padding:0;overflow:hidden}.monaco-host{width:100%;height:100%;min-height:0}.monaco-host[hidden]{display:none!important}.source-editor[hidden],.gutter[hidden]{display:none!important}#diagnosticStatus{color:#9297a3}#diagnosticStatus.has-errors{color:var(--red)}#diagnosticStatus.has-warnings{color:var(--orange)}
+    body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 2v22l6-7 4 9 4-2-4-9h9z' fill='%23b9f279' stroke='%23101115' stroke-width='2'/%3E%3C/svg%3E") 5 2,auto}button,.tree-row,.repo-card,.branch-pill,select{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 2v22l6-7 4 9 4-2-4-9h9z' fill='%23b9f279' stroke='%23101115' stroke-width='2'/%3E%3C/svg%3E") 5 2,pointer}.tree-row:hover{background:#252a20!important;color:#e3f3cf!important;box-shadow:inset 2px 0 0 var(--green)}.file-tools{display:flex;gap:5px;padding:0 9px 7px}.file-search{height:29px;min-width:0;flex:1;border:1px solid #30343d;border-radius:5px;background:#191b21;color:var(--text);padding:0 8px;font-size:10px}.file-search::placeholder{color:#747987}.file-search:focus{border-color:#737986;outline:1px solid #737986}.new-file-btn{height:29px;width:30px;flex:none;border:1px solid #343842;border-radius:5px;background:#1c1e24;color:var(--green);font-size:17px;line-height:1}.new-file-btn:hover{border-color:var(--green);background:#252a20}.modal textarea{width:100%;min-height:110px;resize:vertical;border:1px solid #3a3d47;border-radius:5px;background:#121318;padding:9px 10px;font:12px/1.5 var(--mono)}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 </head>
@@ -30,6 +31,7 @@
     <aside class="sidebar">
       <div class="side-head"><span class="side-eyebrow">PROJECT</span><button class="icon-btn" id="importBtn" title="Import a GitHub repository">＋</button></div>
       <div class="repo-card"><div class="repo-title"><span class="github-mark">⌘</span><span>starfall</span><span style="margin-left:auto;color:#878c98;font-size:11px">⌄</span></div><div class="repo-sub">jordan-dev / starfall</div></div>
+      <div class="file-tools"><input class="file-search" id="fileSearch" type="search" placeholder="Search files…" aria-label="Search repository files" title="Filter files by name or path"><button class="new-file-btn" id="createFileBtn" title="Create a file in this repository" aria-label="Create a file">＋</button></div>
       <div class="tree" id="tree">
         <div class="tree-label">FILES</div>
         <div class="tree-row"><span class="chev">⌄</span><span class="folder">▰</span> Assets</div>
@@ -86,7 +88,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), expandedFolders: new Set(), treeInitialized: false, unityConfigured: false };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), expandedFolders: new Set(), treeInitialized: false, fileSearch: '', unityConfigured: false };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   let monacoEditor = null;
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -177,7 +179,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   function updateChanges() {
     const dirty = dirtyFiles(); const root = $('changes'); root.replaceChildren();
     if (!dirty.length) { const empty = document.createElement('div'); empty.textContent = 'No uncommitted changes'; empty.style.cssText = 'color:#858a97;font-size:11px;padding:10px 0'; root.append(empty); }
-    for (const file of dirty) { const row = document.createElement('div'); row.className = 'change-row'; const badge = document.createElement('span'); badge.className = 'change-badge'; badge.textContent = 'M'; const name = document.createElement('span'); name.className = 'change-file'; name.textContent = file.path; row.append(badge, name); root.append(row); }
+    for (const file of dirty) { const row = document.createElement('div'); row.className = 'change-row'; const badge = document.createElement('span'); badge.className = 'change-badge'; badge.textContent = state.originals.has(file.path) ? 'M' : 'A'; const name = document.createElement('span'); name.className = 'change-file'; name.textContent = file.path; row.append(badge, name); root.append(row); }
     $('pushNote').textContent = `${dirty.length} file${dirty.length === 1 ? '' : 's'} changed · ${state.branch || '—'} → origin`;
     $('pushBtn').disabled = !dirty.length;
     $('pushBtn').innerHTML = dirty.length ? '↑ &nbsp; Commit &amp; push' : '✓ &nbsp; Working tree clean';
@@ -187,7 +189,8 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     const tree = $('tree'); tree.replaceChildren();
     const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'FILES'; tree.append(label);
     const allowed = state.files.filter(file => /\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(file.path));
-    const shown = allowed.length ? allowed : state.files;
+    const query = state.fileSearch.trim().toLowerCase();
+    const shown = (allowed.length ? allowed : state.files).filter(file => !query || file.path.toLowerCase().includes(query));
     const root = { folders: new Map(), files: [] };
     for (const file of shown) {
       const parts = file.path.split('/'); let node = root; let folderPath = '';
@@ -207,24 +210,25 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (rendered >= 800) return;
       for (const folder of [...node.folders.values()].sort((a, b) => a.path.localeCompare(b.path))) {
         if (rendered >= 800) return;
-        const open = state.expandedFolders.has(folder.path);
-        const row = document.createElement('div'); row.className = 'tree-row'; row.title = folder.path; row.style.paddingLeft = `${8 + depth * 14}px`; row.style.cursor = 'pointer';
+        const open = Boolean(query) || state.expandedFolders.has(folder.path);
+        const row = document.createElement('div'); row.className = 'tree-row'; row.title = `${folder.path} · ${open ? 'click to collapse' : 'click to expand'}`; row.style.paddingLeft = `${8 + depth * 14}px`;
         const chevron = document.createElement('span'); chevron.className = 'chev'; chevron.textContent = open ? '⌄' : '›';
         const icon = document.createElement('span'); icon.className = 'folder'; icon.textContent = '▰';
         const name = document.createElement('span'); name.textContent = folder.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis';
-        row.append(chevron, icon, name); row.addEventListener('click', () => { if (open) state.expandedFolders.delete(folder.path); else state.expandedFolders.add(folder.path); refreshTree(); }); tree.append(row);
+        row.append(chevron, icon, name); row.addEventListener('click', () => { if (query) { state.fileSearch = ''; $('fileSearch').value = ''; } if (open) state.expandedFolders.delete(folder.path); else state.expandedFolders.add(folder.path); refreshTree(); }); tree.append(row);
         if (open) renderNode(folder, depth + 1);
       }
       for (const file of node.files.sort((a, b) => a.path.localeCompare(b.path))) {
         if (rendered >= 800) return;
-        const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = file.path; row.style.paddingLeft = `${8 + depth * 14}px`;
+        const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = `${file.path} · click to open`; row.style.paddingLeft = `${8 + depth * 14}px`;
         const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
         const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row); rendered++;
       }
     };
     renderNode(root);
-    const countVisible = node => node.files.length + [...node.folders.values()].reduce((sum, folder) => sum + (state.expandedFolders.has(folder.path) ? countVisible(folder) : 0), 0);
+    const countVisible = node => node.files.length + [...node.folders.values()].reduce((sum, folder) => sum + ((query || state.expandedFolders.has(folder.path)) ? countVisible(folder) : 0), 0);
     const visibleFiles = countVisible(root);
+    if (!shown.length) { const empty = document.createElement('div'); empty.className = 'tree-label'; empty.textContent = query ? 'NO MATCHING FILES' : 'NO FILES FOUND'; tree.append(empty); }
     if (visibleFiles > rendered) { const more = document.createElement('div'); more.className = 'tree-label'; more.textContent = `${visibleFiles - rendered} MORE FILES`; tree.append(more); }
   }
   async function openFile(filePath) {
@@ -261,6 +265,29 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
     } catch (error) { showToast(error.message); }
   }
+  function openCreateFile() {
+    if (!state.repo) { showToast('Open a GitHub repository before creating a file.'); return; }
+    const box = document.querySelector('.modal');
+    box.innerHTML = '<h2 id="modalTitle">Create a file</h2><p>Choose a path inside the current repository. The new file will open in the editor and be included in your next commit.</p><label for="newFilePath">File path</label><input id="newFilePath" placeholder="Assets/Scripts/Player/Inventory.cs" autocomplete="off"><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="createFileConfirm">Create file →</button></div>';
+    $('cancelModal').addEventListener('click', () => modal.classList.remove('show'));
+    $('createFileConfirm').addEventListener('click', () => {
+      const filePath = $('newFilePath').value.trim(); const parts = filePath.split('/');
+      if (!filePath || filePath.length > 240 || filePath.startsWith('/') || filePath.includes('\\') || parts.some(part => !part || part === '.' || part === '..' || /[\u0000-\u001f]/.test(part))) { showToast('Enter a valid repository-relative path.'); $('newFilePath').focus(); return; }
+      if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(filePath)) { showToast('Choose a supported text file type, such as .cs, .json, .shader, or .txt.'); $('newFilePath').focus(); return; }
+      if (state.files.some(file => file.path === filePath)) { showToast('A file already exists at this path.'); $('newFilePath').focus(); return; }
+      const filename = parts[parts.length - 1]; let content = '';
+      if (/\.cs$/i.test(filePath)) { const className = filename.replace(/\.cs$/i, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=\d)/, '_') || 'NewScript'; content = `using UnityEngine;\n\npublic class ${className} : MonoBehaviour\n{\n}\n`; }
+      else if (/\.(json|asmdef|asmref)$/i.test(filePath)) content = '{}\n';
+      state.files.push({ path: filePath, type: 'blob', size: content.length }); state.originals.delete(filePath); state.edits.set(filePath, content); state.active = filePath;
+      let folderPath = ''; for (const part of parts.slice(0, -1)) { folderPath = folderPath ? `${folderPath}/${part}` : part; state.expandedFolders.add(folderPath); }
+      state.fileSearch = ''; $('fileSearch').value = ''; modal.classList.remove('show'); refreshTree();
+      setEditorValue(content); setEditorDisabled(false); editor.dataset.path = filePath;
+      if (monacoEditor) { monaco.editor.setModelLanguage(monacoEditor.getModel(), languageForPath(filePath)); validateEditor(); }
+      $('breadcrumb').textContent = filePath; $('tabName').textContent = filename; document.querySelector('.crumbline span').textContent = state.repo.full_name;
+      updateGutter(); updateChanges(); showToast(`Created ${filePath} · commit to add it to GitHub.`);
+    });
+    modal.classList.add('show'); $('newFilePath').focus();
+  }
   async function openRepoPicker() {
     try {
       if (!state.repos.length) state.repos = await api('/api/repos');
@@ -288,6 +315,9 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     refreshTree();
     const avatar = document.querySelector('.avatar'); avatar.textContent = (session.user?.login || 'GH').slice(0, 2).toUpperCase(); avatar.title = session.user?.login || 'GitHub';
     document.querySelector('.saved').innerHTML = '<i></i>' + esc(session.user?.login || 'GitHub connected');
+    $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
+    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const allowed = state.files.filter(file => /\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(file.path)); const match = (allowed.length ? allowed : state.files).find(file => file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
+    $('createFileBtn').addEventListener('click', openCreateFile);
     const logout = document.createElement('button'); logout.className = 'icon-btn'; logout.title = 'Sign out'; logout.textContent = '↪'; logout.addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.reload(); }); document.querySelector('.top-right').prepend(logout);
     await api('/api/repos').then(repos => { state.repos = repos; if (repos.length) return openRepoPicker(); showToast('No repositories found for this GitHub account.'); }).catch(error => showToast(error.message));
     const repoButton = document.querySelector('.side-head .icon-btn'); repoButton.addEventListener('click', openRepoPicker);
@@ -322,7 +352,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       } catch (error) { showToast(error.message); }
       finally { updateChanges(); }
     });
-    $('discardBtn').addEventListener('click', () => { for (const file of dirtyFiles()) state.edits.set(file.path, state.originals.get(file.path)); if (state.active) setEditorValue(state.edits.get(state.active) || ''); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
+    $('discardBtn').addEventListener('click', () => { const activeWasNew = state.active && !state.originals.has(state.active); let removedNew = false; for (const file of dirtyFiles()) { if (!state.originals.has(file.path)) { state.edits.delete(file.path); state.files = state.files.filter(item => item.path !== file.path); removedNew = true; } else state.edits.set(file.path, state.originals.get(file.path)); } if (activeWasNew) { state.active = ''; setEditorValue(''); setEditorDisabled(true); } else if (state.active) setEditorValue(state.edits.get(state.active) || ''); if (removedNew) refreshTree(); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
     const importButton = $('importBtn'); importButton.replaceWith(importButton.cloneNode(true));
     $('importBtn').addEventListener('click', openRepoPicker);
     const connectNew = $('connectBtn').cloneNode(true); $('connectBtn').replaceWith(connectNew); connectNew.textContent = '⌘　 Switch repository'; connectNew.addEventListener('click', openRepoPicker);
@@ -330,6 +360,16 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     if (!state.unityConfigured) { $('compileBtn').title = 'Set UNITY_EDITOR_PATH on the server to enable checks'; }
     updateChanges();
   }
+  let uiAudio = null, lastHoverSound = 0;
+  function primeUiAudio() { if (uiAudio) return; const AudioContextType = window.AudioContext || window.webkitAudioContext; if (!AudioContextType) return; try { uiAudio = new AudioContextType(); if (uiAudio.state === 'suspended') uiAudio.resume(); } catch { uiAudio = null; } }
+  function playUiSound(kind) {
+    if (!uiAudio || uiAudio.state !== 'running') return;
+    const now = uiAudio.currentTime; const notes = kind === 'hover' ? [[740, 0.025, 0.012]] : [[520, 0.045, 0.025], [780, 0.055, 0.018]];
+    for (const [frequency, duration, volume] of notes) { const oscillator = uiAudio.createOscillator(), gain = uiAudio.createGain(); oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(frequency, now); gain.gain.setValueAtTime(volume, now); gain.gain.exponentialRampToValueAtTime(0.001, now + duration); oscillator.connect(gain); gain.connect(uiAudio.destination); oscillator.start(now); oscillator.stop(now + duration); }
+  }
+  document.addEventListener('pointerdown', primeUiAudio, { once: true, capture: true });
+  document.addEventListener('pointerover', event => { const target = event.target instanceof Element ? event.target.closest('.tree-row,button,.repo-card,.branch-pill,select') : null; if (!target || (event.relatedTarget instanceof Node && target.contains(event.relatedTarget))) return; const now = performance.now(); if (now - lastHoverSound < 90) return; lastHoverSound = now; playUiSound('hover'); });
+  document.addEventListener('click', event => { if (event.target instanceof Element && event.target.closest('.tree-row,button,.repo-card,.branch-pill,select')) playUiSound('select'); });
   init().catch(error => { showGate(error.message); });
 })();
 </script>
