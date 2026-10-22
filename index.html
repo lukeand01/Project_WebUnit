@@ -377,7 +377,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (!state.repo) return showToast('Open a GitHub repository first.');
       checkClone.disabled = true; checkClone.textContent = '◌  Checking Unity project…'; $('resultTitle').textContent = 'Unity check running'; $('resultTag').textContent = 'RUNNING';
       try {
-        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/check`, { method: 'POST', body: JSON.stringify({ branch: state.branch, files: dirtyFiles().filter(file => !file.deleted) }) });
+        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/check`, { method: 'POST', body: JSON.stringify({ branch: state.branch, files: dirtyFiles() }) });
         $('resultTitle').textContent = result.ok ? 'Unity check passed' : 'Unity check found errors'; $('resultTag').textContent = result.ok ? 'PASSED' : 'FAILED'; $('resultTag').style.color = result.ok ? 'var(--green)' : 'var(--red)';
         const details = (result.errors || []).slice(0, 10); $('resultBody').replaceChildren();
         for (const item of details) { const line = document.createElement('div'); line.className = 'result-row'; line.textContent = item; $('resultBody').append(line); }

@@ -223,9 +223,10 @@ async function handle(req, res) {
         try {
           await gitClone(`https://github.com/${owner}/${repo}.git`, body.branch, projectPath, session.accessToken);
           for (const file of body.files || []) {
-            if (typeof file.path !== 'string' || file.path.startsWith('/') || file.path.split('/').some(part => !part || part === '..') || typeof file.content !== 'string') return send(res, 400, { error: 'One or more file paths or contents are invalid.' });
+            if (typeof file.path !== 'string' || file.path.startsWith('/') || file.path.split('/').some(part => !part || part === '..') || (file.deleted !== true && typeof file.content !== 'string')) return send(res, 400, { error: 'One or more file paths or contents are invalid.' });
             const destination = path.resolve(projectPath, file.path);
             if (!destination.startsWith(`${projectPath}${path.sep}`)) return send(res, 400, { error: 'Invalid file path.' });
+            if (file.deleted === true) { await fs.promises.rm(destination, { force: true }); continue; }
             await fs.promises.mkdir(path.dirname(destination), { recursive: true });
             await fs.promises.writeFile(destination, file.content, 'utf8');
           }
