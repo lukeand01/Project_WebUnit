@@ -75,7 +75,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), fileSearch: '', unityConfigured: false, user: null };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', activeFolder: 'Assets', expandedFolders: new Set(['Assets']), originals: new Map(), edits: new Map(), fileSearch: '', unityConfigured: false, user: null };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   let monacoEditor = null;
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -137,7 +137,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       ['MonoBehaviour','class','Unity base class for components'],['GameObject','class','Unity scene object'],['Transform','class','Position, rotation, and scale'],['Rigidbody','class','3D physics body'],['Rigidbody2D','class','2D physics body'],['Collider','class','3D collider'],['Collider2D','class','2D collider'],['Vector2','class','2D vector'],['Vector3','class','3D vector'],['Quaternion','class','Rotation'],['Mathf','class','Unity math helpers'],['Time','class','Frame and time values'],['Input','class','Input system API'],['Debug','class','Logging and debug helpers'],['Camera','class','Scene camera'],['Animator','class','Animation controller'],['List','class','System.Collections.Generic list'],['Dictionary','class','System.Collections.Generic dictionary'],['IEnumerator','class','Coroutine return type'],['SerializeField','property','Serialize a private field'],['GetComponent','method','Get a component from this object'],['Instantiate','method','Create a Unity object'],['Destroy','method','Destroy a Unity object'],['StartCoroutine','method','Start a coroutine'],['Update','method','Called once per frame'],['FixedUpdate','method','Called on the physics timestep'],['Awake','method','Called when the component loads'],['Start','method','Called before the first frame'],['OnEnable','method','Called when the component is enabled'],['OnDisable','method','Called when the component is disabled'],['OnTriggerEnter2D','method','2D trigger callback'],['OnCollisionEnter2D','method','2D collision callback'],['Mathf.Clamp','method','Clamp a value to a range'],['Debug.Log','method','Write to the Unity console'],['Time.deltaTime','field','Time since the last frame'],['if','keyword','Conditional statement'],['else','keyword','Alternative branch'],['for','keyword','For loop'],['foreach','keyword','Collection loop'],['while','keyword','While loop'],['return','keyword','Return from a method'],['new','keyword','Create an object'],['public','keyword','Public access modifier'],['private','keyword','Private access modifier'],['protected','keyword','Protected access modifier'],['class','keyword','Declare a class'],['void','keyword','Method with no return value'],['string','keyword','Text type'],['int','keyword','Integer type'],['float','keyword','Floating-point type'],['bool','keyword','Boolean type'],['var','keyword','Infer a local variable type']
     ];
     const seen = new Set(items.map(item => item[0]));
-    for (const file of state.files) if (/\.cs$/i.test(file.path)) { const name = file.path.split('/').pop().replace(/\.cs$/i, ''); if (/^[A-Za-z_]\w*$/.test(name) && !seen.has(name)) { items.push([name, 'class', `Project script · ${file.path}`]); seen.add(name); } }
+    for (const file of state.files) if (/^Assets\/.*\.cs$/i.test(file.path)) { const name = file.path.split('/').pop().replace(/\.cs$/i, ''); if (/^[A-Za-z_]\w*$/.test(name) && !seen.has(name)) { items.push([name, 'class', `Project script · ${file.path}`]); seen.add(name); } }
     if (monacoEditor) {
       const text = monacoEditor.getValue();
       for (const match of text.matchAll(/\b(?:public|private|protected|internal)\s+(?:(?:static|readonly|const|async|virtual|override)\s+)*[\w<>,.?\[\]]+\s+(\w+)\s*\(/g)) if (!seen.has(match[1])) { items.push([match[1], 'method', 'Method in this script']); seen.add(match[1]); }
@@ -176,21 +176,43 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   }
   function refreshTree() {
     const tree = $('tree'); tree.replaceChildren();
-    const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'FILES'; tree.append(label);
+    const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'ASSETS'; tree.append(label);
     const query = state.fileSearch.trim().toLowerCase();
-    const shown = state.files.filter(file => !query || file.path.toLowerCase().includes(query)).sort((a, b) => a.path.localeCompare(b.path));
-    for (const file of shown.slice(0, 800)) {
-      const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = `${file.path} · click to open`; row.style.paddingLeft = '8px';
-      const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
-      const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row);
+    const assetsFiles = state.files.filter(file => /^Assets\//i.test(file.path));
+    const shown = assetsFiles.filter(file => !query || file.path.toLowerCase().includes(query)).sort((a, b) => a.path.localeCompare(b.path));
+    const folders = new Map(); const filesAt = new Map();
+    for (const file of shown) {
+      const parts = file.path.split('/'); let parent = 'Assets';
+      for (const part of parts.slice(1, -1)) { const path = `${parent}/${part}`; if (!folders.has(parent)) folders.set(parent, new Set()); folders.get(parent).add(path); parent = path; }
+      if (!filesAt.has(parent)) filesAt.set(parent, []); filesAt.get(parent).push(file);
     }
-    if (!shown.length) { const empty = document.createElement('div'); empty.className = 'tree-label'; empty.textContent = query ? 'NO MATCHING FILES' : 'NO FILES FOUND'; tree.append(empty); }
-    if (shown.length > 800) { const more = document.createElement('div'); more.className = 'tree-label'; more.textContent = `${shown.length - 800} MORE FILES`; tree.append(more); }
+    const renderFolder = (folder, depth = 0) => {
+      const children = [...(folders.get(folder) || [])].sort((a, b) => a.localeCompare(b));
+      for (const child of children) {
+        const matches = !query || shown.some(file => file.path.startsWith(`${child}/`));
+        if (!matches) continue;
+        const row = document.createElement('div'); row.className = 'tree-row folder-row'; row.title = child; row.style.paddingLeft = `${8 + depth * 16}px`;
+        const icon = document.createElement('span'); icon.className = 'chev'; icon.textContent = state.expandedFolders.has(child) || query ? '▾' : '▸';
+        const folderIcon = document.createElement('span'); folderIcon.className = 'folder'; folderIcon.textContent = '▰';
+        const name = document.createElement('span'); name.textContent = child.split('/').pop(); row.append(icon, folderIcon, name);
+        row.addEventListener('click', () => { state.activeFolder = child; if (state.expandedFolders.has(child)) state.expandedFolders.delete(child); else state.expandedFolders.add(child); refreshTree(); }); tree.append(row);
+        if (state.expandedFolders.has(child) || query) renderFolder(child, depth + 1);
+      }
+      for (const file of (filesAt.get(folder) || [])) {
+        const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = `${file.path} · click to open`; row.style.paddingLeft = `${16 + depth * 16}px`;
+        const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
+        const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row);
+      }
+    };
+    if (shown.length) renderFolder('Assets');
+    else { const empty = document.createElement('div'); empty.className = 'tree-label'; empty.textContent = query ? 'NO MATCHING ASSETS FILES' : 'NO ASSETS FOLDER FOUND'; tree.append(empty); }
   }
   async function openFile(filePath) {
     try {
       if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute|md|xml|yaml|yml|meta|asset|unity|prefab|mat|anim|controller)$/i.test(filePath)) { showToast('This file is listed, but this editor only opens text-based project files.'); return; }
-      state.active = filePath; refreshTree();
+      state.active = filePath; state.activeFolder = filePath.slice(0, filePath.lastIndexOf('/')) || 'Assets';
+      const folders = state.activeFolder.split('/'); let parent = folders[0]; for (const part of folders.slice(1)) { parent += `/${part}`; state.expandedFolders.add(parent); }
+      refreshTree();
       let content;
       if (state.edits.has(filePath)) content = state.edits.get(filePath);
       else {
@@ -204,7 +226,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
-    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.edits.clear(); state.originals.clear(); state.active = '';
+    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.activeFolder = 'Assets'; state.expandedFolders = new Set(['Assets']); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.active = '';
     renderRecentCommit(null);
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
@@ -220,23 +242,24 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (tree.truncated) showToast('GitHub returned a partial file tree for this large repository.');
       refreshTree();
       await api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/commits?ref=${encodeURIComponent(state.branch)}`).then(commits => renderRecentCommit(commits[0])).catch(error => { renderRecentCommit(null); showToast(`Recent commit could not load: ${error.message}`); });
-      const first = state.files.find(file => /\.cs$/i.test(file.path)) || state.files.find(file => /\.(json|txt|asmdef)$/i.test(file.path));
+      const first = state.files.find(file => /^Assets\/.*\.cs$/i.test(file.path)) || state.files.find(file => /^Assets\/.*\.(json|txt|asmdef)$/i.test(file.path));
       if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
     } catch (error) { showToast(error.message); }
   }
   function openCreateFile() {
     if (!state.repo) { showToast('Open a GitHub repository before creating a file.'); return; }
     const box = document.querySelector('.modal');
-    box.innerHTML = '<h2 id="modalTitle">Create a file</h2><p>New files are created at the repository root. This will not create any folders.</p><label for="newFilePath">File name</label><input id="newFilePath" placeholder="Inventory.cs" autocomplete="off"><div class="auth-error" id="newFileError" hidden></div><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="createFileConfirm">Create file →</button></div>';
+    box.innerHTML = `<h2 id="modalTitle">Create a file</h2><p>New files are created inside <b>${esc(state.activeFolder)}</b>.</p><label for="newFilePath">File name</label><input id="newFilePath" placeholder="Inventory.cs" autocomplete="off"><div class="auth-error" id="newFileError" hidden></div><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="createFileConfirm">Create file →</button></div>`;
     $('cancelModal').addEventListener('click', () => modal.classList.remove('show'));
     $('createFileConfirm').addEventListener('click', () => {
       const error = $('newFileError'); const fail = message => { error.hidden = false; error.textContent = message; $('newFilePath').focus(); };
       let filePath = $('newFilePath').value.trim();
-      if (!filePath || filePath.length > 240 || /[\\/\u0000-\u001f]/.test(filePath) || filePath === '.' || filePath === '..') return fail('Enter one file name only. New files are saved at the repository root.');
+      if (!filePath || filePath.length > 240 || /[\\/\u0000-\u001f]/.test(filePath) || filePath === '.' || filePath === '..') return fail('Enter one file name only. Files are saved inside the selected Assets folder.');
       if (!/\.[^/.]+$/.test(filePath)) filePath += '.cs';
       if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(filePath)) return fail('Supported types include .cs, .json, .shader, .uxml, and .txt.');
       if (state.files.some(file => file.path.toLowerCase() === filePath.toLowerCase())) return fail('A file already exists at this path.');
-      const filename = filePath; let content = '';
+      filePath = `${state.activeFolder}/${filePath}`;
+      const filename = filePath.split('/').pop(); let content = '';
       if (/\.cs$/i.test(filePath)) { const className = filename.replace(/\.cs$/i, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=\d)/, '_') || 'NewScript'; content = `using UnityEngine;\n\npublic class ${className} : MonoBehaviour\n{\n}\n`; }
       else if (/\.(json|asmdef|asmref)$/i.test(filePath)) content = '{}\n';
       state.files.push({ path: filePath, type: 'blob', size: content.length }); state.originals.delete(filePath); state.edits.set(filePath, content); state.active = filePath;
@@ -274,7 +297,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     state.user = session.user || null;
     showWorkspace();
     $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
-    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const match = state.files.find(file => file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
+    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const match = state.files.find(file => /^Assets\//i.test(file.path) && file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
     $('createFileBtn').addEventListener('click', openCreateFile);
     initializeMonaco();
     refreshTree();
