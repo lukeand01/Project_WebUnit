@@ -268,13 +268,17 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   function openCreateFile() {
     if (!state.repo) { showToast('Open a GitHub repository before creating a file.'); return; }
     const box = document.querySelector('.modal');
-    box.innerHTML = '<h2 id="modalTitle">Create a file</h2><p>Choose a path inside the current repository. The new file will open in the editor and be included in your next commit.</p><label for="newFilePath">File path</label><input id="newFilePath" placeholder="Assets/Scripts/Player/Inventory.cs" autocomplete="off"><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="createFileConfirm">Create file →</button></div>';
+    box.innerHTML = '<h2 id="modalTitle">Create a file</h2><p>Enter a name such as Inventory.cs or a full path. A name without a path goes into Assets/Scripts.</p><label for="newFilePath">File name or path</label><input id="newFilePath" placeholder="Inventory.cs" autocomplete="off"><div class="auth-error" id="newFileError" hidden></div><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="createFileConfirm">Create file →</button></div>';
     $('cancelModal').addEventListener('click', () => modal.classList.remove('show'));
     $('createFileConfirm').addEventListener('click', () => {
-      const filePath = $('newFilePath').value.trim(); const parts = filePath.split('/');
-      if (!filePath || filePath.length > 240 || filePath.startsWith('/') || filePath.includes('\\') || parts.some(part => !part || part === '.' || part === '..' || /[\u0000-\u001f]/.test(part))) { showToast('Enter a valid repository-relative path.'); $('newFilePath').focus(); return; }
-      if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(filePath)) { showToast('Choose a supported text file type, such as .cs, .json, .shader, or .txt.'); $('newFilePath').focus(); return; }
-      if (state.files.some(file => file.path === filePath)) { showToast('A file already exists at this path.'); $('newFilePath').focus(); return; }
+      const error = $('newFileError'); const fail = message => { error.hidden = false; error.textContent = message; $('newFilePath').focus(); };
+      let filePath = $('newFilePath').value.trim();
+      if (filePath && !filePath.includes('/')) filePath = `Assets/Scripts/${filePath}`;
+      if (filePath && !/\.[^/]+$/.test(filePath)) filePath += '.cs';
+      const parts = filePath.split('/');
+      if (!filePath || filePath.length > 240 || filePath.startsWith('/') || filePath.includes('\\') || parts.some(part => !part || part === '.' || part === '..' || /[\u0000-\u001f]/.test(part))) return fail('Enter a valid repository-relative file name or path.');
+      if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(filePath)) return fail('Supported types include .cs, .json, .shader, .uxml, and .txt.');
+      if (state.files.some(file => file.path.toLowerCase() === filePath.toLowerCase())) return fail('A file already exists at this path.');
       const filename = parts[parts.length - 1]; let content = '';
       if (/\.cs$/i.test(filePath)) { const className = filename.replace(/\.cs$/i, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=\d)/, '_') || 'NewScript'; content = `using UnityEngine;\n\npublic class ${className} : MonoBehaviour\n{\n}\n`; }
       else if (/\.(json|asmdef|asmref)$/i.test(filePath)) content = '{}\n';
@@ -286,6 +290,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       $('breadcrumb').textContent = filePath; $('tabName').textContent = filename; document.querySelector('.crumbline span').textContent = state.repo.full_name;
       updateGutter(); updateChanges(); showToast(`Created ${filePath} · commit to add it to GitHub.`);
     });
+    $('newFilePath').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('createFileConfirm').click(); } });
     modal.classList.add('show'); $('newFilePath').focus();
   }
   async function openRepoPicker() {
@@ -311,13 +316,13 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     if (!session.authenticated) { showGate(new URLSearchParams(location.search).has('auth') ? 'GitHub sign-in did not complete. Please try again.' : new URLSearchParams(location.search).has('setup') ? 'Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and SESSION_SECRET in .env, then restart the server.' : ''); return; }
     state.unityConfigured = session.unityConfigured;
     showWorkspace();
+    $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
+    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const allowed = state.files.filter(file => /\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(file.path)); const match = (allowed.length ? allowed : state.files).find(file => file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
+    $('createFileBtn').addEventListener('click', openCreateFile);
     initializeMonaco();
     refreshTree();
     const avatar = document.querySelector('.avatar'); avatar.textContent = (session.user?.login || 'GH').slice(0, 2).toUpperCase(); avatar.title = session.user?.login || 'GitHub';
     document.querySelector('.saved').innerHTML = '<i></i>' + esc(session.user?.login || 'GitHub connected');
-    $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
-    $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const allowed = state.files.filter(file => /\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute)$/i.test(file.path)); const match = (allowed.length ? allowed : state.files).find(file => file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
-    $('createFileBtn').addEventListener('click', openCreateFile);
     const logout = document.createElement('button'); logout.className = 'icon-btn'; logout.title = 'Sign out'; logout.textContent = '↪'; logout.addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.reload(); }); document.querySelector('.top-right').prepend(logout);
     await api('/api/repos').then(repos => { state.repos = repos; if (repos.length) return openRepoPicker(); showToast('No repositories found for this GitHub account.'); }).catch(error => showToast(error.message));
     const repoButton = document.querySelector('.side-head .icon-btn'); repoButton.addEventListener('click', openRepoPicker);
