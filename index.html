@@ -20,6 +20,7 @@
     body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 2v22l6-7 4 9 4-2-4-9h9z' fill='%2380d8ff' stroke='%23101115' stroke-width='2'/%3E%3C/svg%3E") 5 2,auto}button,.tree-row,.repo-card,.branch-pill,select{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M5 2v22l6-7 4 9 4-2-4-9h9z' fill='%2380d8ff' stroke='%23101115' stroke-width='2'/%3E%3C/svg%3E") 5 2,pointer}.tree-row:hover{background:#30353a!important;color:#f0f0f0!important;box-shadow:inset 2px 0 0 var(--green)}.file-tools{display:flex;gap:5px;padding:0 9px 7px}.file-search{height:29px;min-width:0;flex:1;border:1px solid #3f3f46;border-radius:5px;background:#252526;color:var(--text);padding:0 8px;font-size:10px}.file-search::placeholder{color:#929292}.file-search:focus{border-color:#80d8ff;outline:1px solid #80d8ff}.new-file-btn{height:29px;width:30px;flex:none;border:1px solid #45454c;border-radius:5px;background:#2d2d30;color:var(--green);font-size:17px;line-height:1}.new-file-btn:hover{border-color:var(--green);background:#34383d}.modal textarea{width:100%;min-height:110px;resize:vertical;border:1px solid #3f3f46;border-radius:5px;background:#252526;padding:9px 10px;font:12px/1.5 var(--mono)}
     .topbar,.tabline,.statusbar{background:#252526}.sidebar,.inspector{background:#202124}.main{background:#1e1e1e}.tabline{border-color:#3f3f46}.filetab.active{background:#1e1e1e}.tree-row.active{background:#29333a;color:#f0f0f0}.github-connect,.commit-btn,.modal-actions button{background:#303033}.commit-box,.compile-result,.repo-card,.modal{background:#252526}.compile-btn,.github-login{background:#57aeff;color:#111820}.compile-btn:hover,.github-login:hover{background:#80d8ff}.unity-dot{background:#14d368;box-shadow:0 0 10px #14d36870}.auth-gate{background:radial-gradient(ellipse at 52% 42%,#30363b 0,#202124 44%,#1e1e1e 78%)}.mark{background:#2f3337;color:#80d8ff;border:1px solid #51565b}.brand{min-width:207px}.activity-link{display:block;color:inherit;text-decoration:none;border-radius:4px;padding:4px;margin:-4px}.activity-link:hover{background:#30353a}.activity-link #recentMessage{color:#e6e6e6}.filetab .fileicon{color:#80d8ff}
   </style>
+  <style>.file-actions{display:flex;gap:4px;padding:0 9px 7px}.file-actions button{min-width:0;flex:1;padding:5px 3px;border:1px solid #3f3f46;border-radius:4px;background:#252526;color:#b9bdc8;font-size:9px}.file-actions button:hover:not(:disabled){border-color:#80d8ff;color:#e6e6e6}.file-actions button:disabled{opacity:.45;cursor:not-allowed}.file-row{gap:6px}.file-row .file-select{width:13px;height:13px;flex:none;margin:0;accent-color:#57aeff;opacity:.75}.file-row.selected{background:#263746;color:#f0f0f0}.file-row.hidden-file{opacity:.55}</style>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 </head>
 <body>
@@ -34,6 +35,7 @@
       <div class="side-head"><span class="side-eyebrow">PROJECT</span><button class="icon-btn" id="importBtn" title="Import a GitHub repository">＋</button></div>
       <div class="repo-card"><div class="repo-title"><span class="github-mark">⌘</span><span>starfall</span><span style="margin-left:auto;color:#878c98;font-size:11px">⌄</span></div><div class="repo-sub">jordan-dev / starfall</div></div>
       <div class="file-tools"><input class="file-search" id="fileSearch" type="search" placeholder="Search files…" aria-label="Search repository files" title="Filter files by name or path"><button class="new-file-btn" id="createFileBtn" title="Create a file in this repository" aria-label="Create a file">＋</button></div>
+      <div class="file-actions"><button id="moveSelectedBtn" disabled>Move selected</button><button id="hideSelectedBtn" disabled>Hide selected</button><button id="toggleHiddenBtn">Show hidden</button></div>
       <div class="tree" id="tree"><div class="tree-label">FILES</div></div>
       <div class="side-bottom"><div class="branch-info"><span>Branch</span><b>main　⌄</b></div><button class="github-connect" id="connectBtn">⌘　 Connect GitHub</button></div>
     </aside>
@@ -75,7 +77,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], assetsRoot: 'Assets', active: '', activeFolder: 'Assets', expandedFolders: new Set(['Assets']), originals: new Map(), edits: new Map(), fileSearch: '', unityConfigured: false, user: null };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], assetsRoot: 'Assets', active: '', activeFolder: 'Assets', expandedFolders: new Set(['Assets']), originals: new Map(), edits: new Map(), deleted: new Map(), selected: new Set(), hidden: new Set(), showHidden: false, fileSearch: '', unityConfigured: false, user: null };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   let monacoEditor = null;
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
@@ -164,14 +166,15 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       monacoEditor.layout(); validateEditor();
     }, error => { console.warn('Monaco failed to load; continuing with the basic text editor.', error); });
   }
-  function dirtyFiles() { return [...state.edits].filter(([path, content]) => content !== state.originals.get(path)).map(([path, content]) => ({ path, content })); }
+  function dirtyFiles() { return [...[...state.edits].filter(([path, content]) => content !== state.originals.get(path)).map(([path, content]) => ({ path, content })), ...[...state.deleted.keys()].map(path => ({ path, deleted: true }))]; }
   function updateChanges() {
     const dirty = dirtyFiles(); const root = $('changes'); root.replaceChildren();
     if (!dirty.length) { const empty = document.createElement('div'); empty.textContent = 'No uncommitted changes'; empty.style.cssText = 'color:#858a97;font-size:11px;padding:10px 0'; root.append(empty); }
-    for (const file of dirty) { const row = document.createElement('div'); row.className = 'change-row'; const badge = document.createElement('span'); badge.className = 'change-badge'; badge.textContent = state.originals.has(file.path) ? 'M' : 'A'; const name = document.createElement('span'); name.className = 'change-file'; name.textContent = file.path; row.append(badge, name); root.append(row); }
+    for (const file of dirty) { const row = document.createElement('div'); row.className = 'change-row'; const badge = document.createElement('span'); badge.className = 'change-badge'; badge.textContent = file.deleted ? 'D' : state.originals.has(file.path) ? 'M' : 'A'; const name = document.createElement('span'); name.className = 'change-file'; name.textContent = file.path; row.append(badge, name); root.append(row); }
     $('pushNote').textContent = `${dirty.length} file${dirty.length === 1 ? '' : 's'} changed · ${state.branch || '—'} → origin`;
     $('pushBtn').disabled = !dirty.length;
     $('pushBtn').innerHTML = dirty.length ? '↑ &nbsp; Commit &amp; push' : '✓ &nbsp; Working tree clean';
+    const chosen = [...state.selected]; $('moveSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').textContent = chosen.length && chosen.every(filePath => state.hidden.has(filePath)) ? `Restore selected (${chosen.length})` : chosen.length ? `Hide selected (${chosen.length})` : 'Hide selected'; $('toggleHiddenBtn').textContent = state.showHidden ? `Hide hidden (${state.hidden.size})` : `Show hidden (${state.hidden.size})`;
     document.querySelector('.pushstatus').textContent = dirty.length ? `● ${dirty.length} unsaved change${dirty.length === 1 ? '' : 's'}` : '● Synced to GitHub';
   }
   function refreshTree() {
@@ -180,7 +183,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     const query = state.fileSearch.trim().toLowerCase();
     const assetsPrefix = `${state.assetsRoot}/`;
     const assetsFiles = state.files.filter(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()));
-    const shown = assetsFiles.filter(file => !query || file.path.toLowerCase().includes(query)).sort((a, b) => a.path.localeCompare(b.path));
+    const shown = assetsFiles.filter(file => (state.showHidden || !state.hidden.has(file.path)) && (!query || file.path.toLowerCase().includes(query))).sort((a, b) => a.path.localeCompare(b.path));
     const folders = new Map(); const filesAt = new Map();
     for (const file of shown) {
       const parts = file.path.split('/'); let parent = state.assetsRoot;
@@ -200,9 +203,10 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         if (state.expandedFolders.has(child) || query) renderFolder(child, depth + 1);
       }
       for (const file of (filesAt.get(folder) || [])) {
-        const row = document.createElement('div'); row.className = 'tree-row' + (file.path === state.active ? ' active' : ''); row.title = `${file.path} · click to open`; row.style.paddingLeft = `${16 + depth * 16}px`;
+        const row = document.createElement('div'); row.className = 'tree-row file-row' + (file.path === state.active ? ' active' : '') + (state.selected.has(file.path) ? ' selected' : '') + (state.hidden.has(file.path) ? ' hidden-file' : ''); row.title = `${file.path} · click to open`; row.style.paddingLeft = `${16 + depth * 16}px`;
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'file-select'; checkbox.checked = state.selected.has(file.path); checkbox.setAttribute('aria-label', `Select ${file.path}`); checkbox.addEventListener('click', event => event.stopPropagation()); checkbox.addEventListener('change', () => { if (checkbox.checked) state.selected.add(file.path); else state.selected.delete(file.path); refreshTree(); updateChanges(); });
         const icon = document.createElement('span'); icon.className = /\.cs$/i.test(file.path) ? 'fileicon' : 'fileicon unity'; icon.textContent = /\.cs$/i.test(file.path) ? 'C#' : '◈';
-        const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(icon, name); row.addEventListener('click', () => openFile(file.path)); tree.append(row);
+        const name = document.createElement('span'); name.textContent = file.path.split('/').pop(); name.style.cssText = 'overflow:hidden;text-overflow:ellipsis'; row.append(checkbox, icon, name); row.addEventListener('click', event => { if (event.ctrlKey || event.metaKey) { state.selected.has(file.path) ? state.selected.delete(file.path) : state.selected.add(file.path); refreshTree(); updateChanges(); return; } openFile(file.path); }); tree.append(row);
       }
     };
     if (shown.length) renderFolder(state.assetsRoot);
@@ -227,7 +231,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
-    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.assetsRoot = 'Assets'; state.activeFolder = 'Assets'; state.expandedFolders = new Set(['Assets']); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.active = '';
+    state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.assetsRoot = 'Assets'; state.activeFolder = 'Assets'; state.expandedFolders = new Set(['Assets']); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.deleted.clear(); state.selected.clear(); state.hidden.clear(); state.showHidden = false; state.active = '';
     renderRecentCommit(null);
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
@@ -279,6 +283,55 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     $('newFilePath').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('createFileConfirm').click(); } });
     modal.classList.add('show'); $('newFilePath').focus();
   }
+  function assetFolders() {
+    const folders = new Set([state.assetsRoot]);
+    for (const file of state.files) {
+      if (!file.path.startsWith(`${state.assetsRoot}/`)) continue;
+      const parts = file.path.split('/'); let current = state.assetsRoot;
+      for (const part of parts.slice(state.assetsRoot.split('/').length, -1)) { current += `/${part}`; folders.add(current); }
+    }
+    return [...folders].sort((a, b) => a.localeCompare(b));
+  }
+  async function moveSelectedFiles() {
+    const selected = [...state.selected]; if (!selected.length) return;
+    for (const filePath of [...selected]) if (!filePath.toLowerCase().endsWith('.meta') && state.files.some(file => file.path === `${filePath}.meta`) && !selected.includes(`${filePath}.meta`)) selected.push(`${filePath}.meta`);
+    const modalBox = document.querySelector('.modal');
+    modalBox.innerHTML = '<h2 id="modalTitle">Move selected files</h2><p>Choose an existing folder inside Assets. GitHub will record the path changes when you commit.</p><label for="moveDestination">Destination folder</label><select id="moveDestination" class="branch-select"></select><div class="auth-error" id="moveError" hidden></div><div class="modal-actions"><button id="cancelModal">Cancel</button><button class="primary" id="confirmMove">Move files →</button></div>';
+    const destination = $('moveDestination');
+    for (const folder of assetFolders()) { const option = document.createElement('option'); option.value = folder; option.textContent = folder; destination.append(option); }
+    destination.value = state.activeFolder;
+    $('cancelModal').addEventListener('click', () => modal.classList.remove('show'));
+    $('confirmMove').addEventListener('click', async () => {
+      const target = destination.value, moves = selected.map(oldPath => ({ oldPath, newPath: `${target}/${oldPath.split('/').pop()}` }));
+      const error = $('moveError'), fail = message => { error.hidden = false; error.textContent = message; };
+      if (moves.some(move => move.oldPath === move.newPath)) return fail('Choose a different destination folder.');
+      const targets = moves.map(move => move.newPath.toLowerCase());
+      if (new Set(targets).size !== targets.length || moves.some(move => state.files.some(file => file.path.toLowerCase() === move.newPath.toLowerCase() && !selected.includes(file.path)))) return fail('A file with the same name already exists in the destination.');
+      const button = $('confirmMove'); button.disabled = true; button.textContent = 'Moving…';
+      try {
+        const contents = await Promise.all(moves.map(async ({ oldPath }) => {
+          if (state.edits.has(oldPath)) return state.edits.get(oldPath);
+          const data = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/file?ref=${encodeURIComponent(state.branch)}&path=${encodeURIComponent(oldPath)}`);
+          state.originals.set(oldPath, data.content); state.edits.set(oldPath, data.content); return data.content;
+        }));
+        moves.forEach(({ oldPath, newPath }, index) => {
+          const file = state.files.find(item => item.path === oldPath); if (state.originals.has(oldPath)) state.deleted.set(oldPath, { ...file });
+          state.edits.delete(oldPath); state.originals.delete(newPath); state.edits.set(newPath, contents[index]);
+          state.files = state.files.filter(item => item.path !== oldPath); state.files.push({ ...file, path: newPath, size: contents[index].length });
+          if (state.hidden.delete(oldPath)) state.hidden.add(newPath);
+          if (state.active === oldPath) { state.active = newPath; state.activeFolder = target; editor.dataset.path = newPath; $('breadcrumb').textContent = newPath; $('tabName').textContent = newPath.split('/').pop(); }
+        });
+        state.selected.clear(); state.activeFolder = target; state.expandedFolders.add(target); modal.classList.remove('show'); refreshTree(); updateChanges(); showToast(`Moved ${moves.length} file${moves.length === 1 ? '' : 's'} · commit to save path changes.`);
+      } catch (moveError) { fail(moveError.message); button.disabled = false; button.textContent = 'Move files →'; }
+    });
+    modal.classList.add('show');
+  }
+  function hideOrRestoreSelected() {
+    const paths = [...state.selected]; if (!paths.length) return;
+    const shouldRestore = paths.every(filePath => state.hidden.has(filePath));
+    for (const filePath of paths) shouldRestore ? state.hidden.delete(filePath) : state.hidden.add(filePath);
+    state.selected.clear(); refreshTree(); updateChanges(); showToast(shouldRestore ? 'Selected files are visible again.' : 'Selected files hidden from the tree. Use Show hidden to restore them.');
+  }
   async function openRepoPicker() {
     try {
       if (!state.repos.length) state.repos = await api('/api/repos');
@@ -306,6 +359,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     $('fileSearch').addEventListener('input', event => { state.fileSearch = event.target.value; refreshTree(); });
     $('fileSearch').addEventListener('keydown', event => { if (event.key === 'Enter') { const query = state.fileSearch.trim().toLowerCase(); const match = state.files.find(file => file.path.toLowerCase().startsWith(`${state.assetsRoot}/`.toLowerCase()) && file.path.toLowerCase().includes(query)); if (query && match) openFile(match.path); } });
     $('createFileBtn').addEventListener('click', openCreateFile);
+    $('moveSelectedBtn').addEventListener('click', moveSelectedFiles); $('hideSelectedBtn').addEventListener('click', hideOrRestoreSelected); $('toggleHiddenBtn').addEventListener('click', () => { state.showHidden = !state.showHidden; refreshTree(); updateChanges(); });
     initializeMonaco();
     refreshTree();
     const avatar = document.querySelector('.avatar'); avatar.textContent = (session.user?.login || 'GH').slice(0, 2).toUpperCase(); avatar.title = session.user?.login || 'GitHub';
@@ -323,7 +377,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (!state.repo) return showToast('Open a GitHub repository first.');
       checkClone.disabled = true; checkClone.textContent = '◌  Checking Unity project…'; $('resultTitle').textContent = 'Unity check running'; $('resultTag').textContent = 'RUNNING';
       try {
-        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/check`, { method: 'POST', body: JSON.stringify({ branch: state.branch, files: dirtyFiles() }) });
+        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/check`, { method: 'POST', body: JSON.stringify({ branch: state.branch, files: dirtyFiles().filter(file => !file.deleted) }) });
         $('resultTitle').textContent = result.ok ? 'Unity check passed' : 'Unity check found errors'; $('resultTag').textContent = result.ok ? 'PASSED' : 'FAILED'; $('resultTag').style.color = result.ok ? 'var(--green)' : 'var(--red)';
         const details = (result.errors || []).slice(0, 10); $('resultBody').replaceChildren();
         for (const item of details) { const line = document.createElement('div'); line.className = 'result-row'; line.textContent = item; $('resultBody').append(line); }
@@ -340,11 +394,11 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       $('pushBtn').disabled = true; $('pushBtn').textContent = '◌  Committing…';
       try {
         const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/commit`, { method: 'POST', body: JSON.stringify({ branch: state.branch, message, files }) });
-        for (const file of files) state.originals.set(file.path, file.content); updateChanges(); renderRecentCommit({ sha: result.sha, url: result.url, message, author: state.user?.login, date: new Date().toISOString() }); showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
+        for (const file of files) { if (file.deleted) { state.originals.delete(file.path); state.edits.delete(file.path); } else state.originals.set(file.path, file.content); } state.deleted.clear(); updateChanges(); renderRecentCommit({ sha: result.sha, url: result.url, message, author: state.user?.login, date: new Date().toISOString() }); showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
       } catch (error) { showToast(error.message); }
       finally { updateChanges(); }
     });
-    $('discardBtn').addEventListener('click', () => { const activeWasNew = state.active && !state.originals.has(state.active); let removedNew = false; for (const file of dirtyFiles()) { if (!state.originals.has(file.path)) { state.edits.delete(file.path); state.files = state.files.filter(item => item.path !== file.path); removedNew = true; } else state.edits.set(file.path, state.originals.get(file.path)); } if (activeWasNew) { state.active = ''; setEditorValue(''); setEditorDisabled(true); } else if (state.active) setEditorValue(state.edits.get(state.active) || ''); if (removedNew) refreshTree(); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
+    $('discardBtn').addEventListener('click', () => { const restore = [...state.deleted.values()]; for (const file of restore) if (!state.files.some(item => item.path === file.path)) state.files.push(file); state.deleted.clear(); let removedActive = false; for (const [filePath] of [...state.edits]) { if (!state.originals.has(filePath)) { if (state.active === filePath) removedActive = true; state.edits.delete(filePath); state.files = state.files.filter(item => item.path !== filePath); } else state.edits.set(filePath, state.originals.get(filePath)); } if (removedActive) { state.active = ''; setEditorValue(''); setEditorDisabled(true); } else if (state.active) setEditorValue(state.edits.get(state.active) || ''); refreshTree(); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
     const importButton = $('importBtn'); importButton.replaceWith(importButton.cloneNode(true));
     $('importBtn').addEventListener('click', openRepoPicker);
     const connectNew = $('connectBtn').cloneNode(true); $('connectBtn').replaceWith(connectNew); connectNew.textContent = '⌘　 Switch repository'; connectNew.addEventListener('click', openRepoPicker);

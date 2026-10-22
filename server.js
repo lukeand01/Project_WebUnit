@@ -202,7 +202,9 @@ async function handle(req, res) {
         const parent = await github(session, `${base}/git/commits/${branch.commit.sha}`);
         const tree = [];
         for (const file of body.files) {
-          if (typeof file.path !== 'string' || file.path.startsWith('/') || file.path.split('/').some(part => !part || part === '..') || typeof file.content !== 'string') return send(res, 400, { error: 'One or more file paths or contents are invalid.' });
+          if (typeof file.path !== 'string' || file.path.startsWith('/') || file.path.split('/').some(part => !part || part === '..')) return send(res, 400, { error: 'One or more file paths are invalid.' });
+          if (file.deleted === true) { tree.push({ path: file.path, mode: '100644', type: 'blob', sha: null }); continue; }
+          if (typeof file.content !== 'string') return send(res, 400, { error: 'One or more file contents are invalid.' });
           const blob = await github(session, `${base}/git/blobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: file.content, encoding: 'utf-8' }) });
           tree.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha });
         }
