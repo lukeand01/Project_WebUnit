@@ -167,7 +167,7 @@ async function handle(req, res) {
       const repos = await github(session, '/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member');
       return send(res, 200, repos.map(repo => ({ id: repo.id, full_name: repo.full_name, name: repo.name, owner: repo.owner.login, private: repo.private, default_branch: repo.default_branch, updated_at: repo.updated_at, description: repo.description })));
     }
-    const repoMatch = pathname.match(/^\/api\/repos\/([^/]+)\/([^/]+)\/(branches|tree|file|commit|check)$/);
+    const repoMatch = pathname.match(/^\/api\/repos\/([^/]+)\/([^/]+)\/(branches|tree|file|commit|commits|check)$/);
     if (repoMatch) {
       const [, owner, repo, action] = repoMatch;
       if (!validSlug(owner) || !validSlug(repo)) return send(res, 400, { error: 'Invalid repository name.' });
@@ -175,6 +175,11 @@ async function handle(req, res) {
       if (action === 'branches' && req.method === 'GET') {
         const branches = await github(session, `${base}/branches?per_page=100`);
         return send(res, 200, branches.map(item => item.name));
+      }
+      if (action === 'commits' && req.method === 'GET') {
+        const ref = url.searchParams.get('ref') || 'HEAD';
+        const commits = await github(session, `${base}/commits?per_page=1&sha=${encodeURIComponent(ref)}`);
+        return send(res, 200, commits.map(item => ({ sha: item.sha, message: item.commit.message.split('\n')[0], author: item.author?.login || item.commit.author?.name || 'Unknown', date: item.commit.author?.date || item.commit.committer?.date || null, url: item.html_url })));
       }
       if (action === 'tree' && req.method === 'GET') {
         const ref = url.searchParams.get('ref') || 'HEAD';

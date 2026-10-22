@@ -1,8 +1,8 @@
 {
-  "name": "forge-unity-workspace",
+  "name": "my-web-unity",
   "version": "1.0.0",
   "private": true,
-  "description": "Browser workspace for Unity scripts with GitHub integration",
+  "description": "My Web Unity browser workspace for Unity scripts with GitHub integration",
   "scripts": {
     "start": "node server.js"
   },

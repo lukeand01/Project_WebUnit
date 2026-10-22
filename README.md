@@ -1,6 +1,6 @@
-# Forge
+# My Web Unity
 
-Forge is a small Node.js app that gates a Unity code workspace behind GitHub sign-in. It can list repositories, browse and edit text files, create a GitHub commit, and run Unity's batch-mode editor against a temporary checkout.
+My Web Unity is an independent Node.js app that gates a Unity code workspace behind GitHub sign-in. It can list repositories, browse and edit text files, create a GitHub commit, and run Unity's batch-mode editor against a temporary checkout. It is not affiliated with Unity Technologies.
 
 ## Run locally
 
