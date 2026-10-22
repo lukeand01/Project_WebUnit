@@ -181,7 +181,6 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     document.querySelector('.saved').innerHTML = '<i></i>' + esc(session.user?.login || 'GitHub connected');
     const logout = document.createElement('button'); logout.className = 'icon-btn'; logout.title = 'Sign out'; logout.textContent = '↪'; logout.addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.reload(); }); document.querySelector('.top-right').prepend(logout);
     await api('/api/repos').then(repos => { state.repos = repos; if (repos.length) return openRepoPicker(); showToast('No repositories found for this GitHub account.'); }).catch(error => showToast(error.message));
-    $('importBtn').replaceWith(Object.assign(document.createElement('button'), { className: 'icon-btn', textContent: '+', title: 'Open another repository' }));
     const repoButton = document.querySelector('.side-head .icon-btn'); repoButton.addEventListener('click', openRepoPicker);
     const repoCard = document.querySelector('.repo-card'); repoCard.style.cursor = 'pointer'; repoCard.title = 'Switch repository'; repoCard.addEventListener('click', openRepoPicker);
     const connect = $('connectBtn'); connect.textContent = '⌘　 Switch repository'; connect.addEventListener('click', openRepoPicker);
@@ -216,6 +215,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     });
     $('discardBtn').addEventListener('click', () => { for (const file of dirtyFiles()) state.edits.set(file.path, state.originals.get(file.path)); if (state.active) editor.value = state.edits.get(state.active) || ''; updateGutter(); updateChanges(); showToast('Local edits discarded.'); });
     const originalImport = $('importRepo'); originalImport.replaceWith(originalImport.cloneNode(true));
+    const importButton = $('importBtn'); importButton.replaceWith(importButton.cloneNode(true));
     $('importBtn').addEventListener('click', openRepoPicker);
     const connectNew = $('connectBtn').cloneNode(true); $('connectBtn').replaceWith(connectNew); connectNew.textContent = '⌘　 Switch repository'; connectNew.addEventListener('click', openRepoPicker);
     document.querySelector('.branch-info b').addEventListener('click', openRepoPicker);
