@@ -15,7 +15,9 @@
     .inspector{border-left:1px solid var(--line);background:#15161b;display:flex;flex-direction:column;min-height:0}.inspect-head{height:40px;padding:0 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font:10px var(--mono);letter-spacing:.7px;color:#c9cbd3}.run-head{padding:14px 14px 12px;border-bottom:1px solid var(--line)}.run-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}.unity-dot{height:8px;width:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px #b9f27970}.run-sub{margin:5px 0 12px 16px;color:#838894;font-size:11px}.compile-btn{width:100%;height:36px;border:0;border-radius:6px;background:var(--green);color:#151a10;font-weight:700;font-size:12px}.compile-btn:hover{background:#c9ff8b}.compile-btn:disabled{opacity:.75;cursor:wait}.compile-meta{display:flex;justify-content:space-between;margin-top:8px;color:#777d89;font:10px var(--mono)}.compile-result{margin:13px 13px 0;border:1px solid #343740;border-radius:7px;background:#191b21;overflow:hidden}.result-header{display:flex;align-items:center;gap:8px;padding:10px 11px;border-bottom:1px solid #2a2c34;font-weight:600;font-size:11px}.result-dot{height:7px;width:7px;border-radius:50%;background:var(--green2)}.result-tag{margin-left:auto;color:var(--green);font:10px var(--mono)}.result-body{padding:9px 11px;color:#9297a3;font-size:11px;line-height:1.6}.result-row{display:flex;align-items:center;gap:7px;padding:5px 0}.check{color:var(--green2)}.result-foot{margin-top:4px;padding-top:8px;border-top:1px solid #2b2d35;color:#747987;font:10px var(--mono)}.section{padding:15px 14px 0}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}.section-title{font:10px var(--mono);color:#969aa6;letter-spacing:.6px}.small-action{border:0;background:none;color:#a3a8b4;font-size:10px}.change-row{display:flex;gap:8px;align-items:center;margin:9px 0;color:#b9bdc8;font-size:11px}.change-badge{font:10px var(--mono);color:#8fd883;background:#243023;border-radius:4px;padding:2px 4px}.change-file{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.commit-box{margin:12px 13px 0;padding:11px;background:#1b1d23;border:1px solid #30333d;border-radius:7px}.commit-label{font-size:10px;color:#9297a2;margin-bottom:7px}.commit-input{width:100%;height:31px;border:1px solid #343742;border-radius:5px;background:#111217;padding:0 8px;font-size:11px}.commit-btn{height:33px;width:100%;margin-top:8px;border:1px solid #424750;border-radius:5px;background:#242730;color:#e0e2e8;font-size:11px}.commit-btn:hover{border-color:#767c87}.commit-btn:disabled{opacity:.55}.push-note{color:#777d89;font-size:10px;text-align:center;margin-top:7px}.activity{margin:14px 13px 0;border-top:1px solid var(--line);padding-top:12px;color:#9297a2;font-size:10px}.activity b{font-weight:500;color:#c9cbd3}.activity-time{float:right;color:#686d78;font-family:var(--mono)}.activity p{margin:8px 0 0;line-height:1.5}.toast{position:fixed;right:20px;bottom:20px;padding:11px 14px;border-radius:7px;border:1px solid #40454d;background:#24272d;color:#e5e7ed;box-shadow:0 6px 25px #0008;opacity:0;transform:translateY(9px);pointer-events:none;transition:.2s;z-index:5}.toast.show{opacity:1;transform:translateY(0)}.modal-back{position:fixed;inset:0;background:#050608b8;display:none;place-items:center;z-index:10}.modal-back.show{display:grid}.modal{width:min(430px,calc(100vw - 30px));border:1px solid #3b3e48;border-radius:10px;background:#1a1c22;padding:19px;box-shadow:0 25px 90px #000a}.modal h2{margin:0;font:600 17px var(--display)}.modal p{margin:7px 0 17px;color:#9297a3;font-size:12px;line-height:1.5}.modal label{display:block;margin:10px 0 5px;color:#c2c5ce;font-size:11px}.modal input{width:100%;height:36px;border:1px solid #3a3d47;border-radius:5px;background:#121318;padding:0 10px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.modal-actions button{height:33px;padding:0 13px;border-radius:5px;border:1px solid #3d414b;background:#25272f}.modal-actions .primary{border-color:var(--green);background:var(--green);color:#151a10;font-weight:700}
     @media(max-width:1000px){.layout{grid-template-columns:200px minmax(300px,1fr) 270px}.brand{min-width:175px}.topbar{gap:12px;padding:0 13px}.top-project{padding-left:12px}}@media(max-width:800px){body{overflow:auto}.app{height:auto;min-height:100vh;min-width:0;grid-template-rows:54px 1fr}.top-project .crumb-muted,.saved{display:none}.layout{grid-template-columns:180px minmax(0,1fr)}.inspector{display:none}.editor{min-height:65vh}.brand{min-width:auto}.top-project{border:0;padding-left:4px}.top-tag{display:none}}
     .editor{display:flex;padding:18px 0 24px;gap:0}.gutter{width:53px;flex:none;text-align:right;padding-right:16px;color:#545864;user-select:none;white-space:pre;line-height:1.85;font:12px/1.85 var(--mono)}.source-editor{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:#c8cad2;padding:0 25px 0 0;font:12px/1.85 var(--mono);white-space:pre;tab-size:4;overflow:auto}.source-editor:focus{outline:0}.workspace-hidden{display:none!important}.auth-gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(ellipse at 52% 42%,#20251c 0,#14151a 44%,#101115 78%)}.auth-card{width:min(440px,calc(100vw - 36px));padding:36px;border:1px solid #343740;border-radius:13px;background:#191b20;box-shadow:0 30px 100px #0008}.auth-brand{display:flex;align-items:center;gap:9px;font:700 20px var(--display);margin-bottom:36px}.auth-brand .mark{width:29px;height:29px}.auth-card h1{font:600 27px/1.2 var(--display);letter-spacing:-.5px;margin:0 0 10px}.auth-card p{color:#9b9fab;line-height:1.65;font-size:13px;margin:0 0 24px}.github-login{height:43px;width:100%;border:0;border-radius:6px;background:var(--green);color:#151a10;font-weight:700}.github-login:hover{background:#c9ff8b}.auth-foot{margin-top:14px;color:#777d88;font-size:10px;text-align:center}.auth-error{color:#f17b7b;font-size:11px;margin:0 0 14px}.repos-select,.branch-select{width:100%;height:36px;border:1px solid #3a3d47;border-radius:5px;background:#121318;padding:0 9px;color:#e5e7ee}
+    .editor.monaco-active{display:block;padding:0;overflow:hidden}.monaco-host{width:100%;height:100%;min-height:0}.monaco-host[hidden]{display:none!important}.source-editor[hidden],.gutter[hidden]{display:none!important}#diagnosticStatus{color:#9297a3}#diagnosticStatus.has-errors{color:var(--red)}#diagnosticStatus.has-warnings{color:var(--orange)}
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 </head>
 <body>
 <div class="app">
@@ -49,8 +51,8 @@
     <main class="main">
       <div class="crumbline"><span>Assets</span><span>/</span><span>Scripts</span><span>/</span><b id="breadcrumb">PlayerController.cs</b><span class="right"><button class="icon-btn" title="Search">⌕</button><button class="icon-btn" title="More options">···</button></span></div>
       <div class="tabline"><div class="filetab active"><span class="fileicon">C#</span><span id="tabName">PlayerController.cs</span><span class="x">×</span></div></div>
-      <div class="editor" id="editor" aria-label="Code editor"><div class="gutter" id="gutter"></div><textarea class="source-editor" id="sourceEditor" spellcheck="false" aria-label="C# source editor" disabled></textarea></div>
-      <div class="statusbar"><span>Ln <b id="lnStat">24</b>, Col 1</span><span>Spaces: 4</span><span>UTF-8</span><span>C#</span><span class="pushstatus">● Synced to GitHub</span></div>
+      <div class="editor" id="editor" aria-label="Code editor"><div class="monaco-host" id="monacoHost" hidden></div><div class="gutter" id="gutter"></div><textarea class="source-editor" id="sourceEditor" spellcheck="false" aria-label="C# source editor" disabled></textarea></div>
+      <div class="statusbar"><span>Ln <b id="lnStat">1</b>, Col 1</span><span>Spaces: 4</span><span>UTF-8</span><span id="diagnosticStatus">● 0 errors</span><span class="pushstatus">● Synced to GitHub</span></div>
     </main>
     <aside class="inspector">
       <div class="inspect-head"><span>BUILD &amp; SOURCE CONTROL</span><button class="icon-btn" title="More">···</button></div>
@@ -86,6 +88,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   const $ = id => document.getElementById(id);
   const state = { repos: [], repo: null, branches: [], branch: '', files: [], active: '', originals: new Map(), edits: new Map(), expandedFolders: new Set(), treeInitialized: false, unityConfigured: false };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
+  let monacoEditor = null;
   function showToast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 3200); }
   async function api(url, options = {}) {
     const response = await fetch(url, { credentials: 'same-origin', ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
@@ -97,7 +100,79 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   function showGate(message = '') { app.classList.add('workspace-hidden'); gate.classList.remove('workspace-hidden'); $('authError').hidden = !message; $('authError').textContent = message; }
   function showWorkspace() { gate.classList.add('workspace-hidden'); app.classList.remove('workspace-hidden'); }
   function esc(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
-  function updateGutter() { const count = editor.value.split('\n').length; $('gutter').textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n'); $('lnStat').textContent = count; }
+  function editorValue() { return monacoEditor ? monacoEditor.getValue() : editor.value; }
+  function setEditorValue(value) { editor.value = value; if (monacoEditor && monacoEditor.getValue() !== value) monacoEditor.setValue(value); }
+  function setEditorDisabled(disabled) { editor.disabled = disabled; if (monacoEditor) monacoEditor.updateOptions({ readOnly: disabled }); }
+  function updateGutter() { const count = editorValue().split('\n').length; $('gutter').textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n'); $('lnStat').textContent = count; }
+  function languageForPath(filePath) { const ext = filePath.split('.').pop().toLowerCase(); return ({ cs: 'csharp', json: 'json', shader: 'csharp', compute: 'csharp', uss: 'css', uxml: 'xml', txt: 'plaintext', asmdef: 'json', asmref: 'json', csproj: 'xml', sln: 'plaintext' })[ext] || 'plaintext'; }
+  function validateCSharp(source) {
+    const markers = [], stack = [], pairs = { ')': '(', '}': '{', ']': '[' }, opens = new Set(['(', '{', '[']);
+    let mode = 'code', quote = '', verbatim = false, escaped = false, start = 0;
+    const add = (offset, message) => { const before = source.slice(0, offset).split('\n'); markers.push({ severity: monaco.MarkerSeverity.Error, message, startLineNumber: before.length, startColumn: before[before.length - 1].length + 1, endLineNumber: before.length, endColumn: before[before.length - 1].length + 2, source: 'Forge C#' }); };
+    for (let i = 0; i < source.length; i++) {
+      const ch = source[i], next = source[i + 1];
+      if (mode === 'line') { if (ch === '\n') mode = 'code'; continue; }
+      if (mode === 'block') { if (ch === '*' && next === '/') { mode = 'code'; i++; } continue; }
+      if (mode === 'string' || mode === 'char') {
+        if (verbatim && ch === quote && next === quote) { i++; continue; }
+        if (escaped) { escaped = false; continue; }
+        if (!verbatim && ch === '\\') { escaped = true; continue; }
+        if (ch === quote) { mode = 'code'; continue; }
+        if (ch === '\n' && !verbatim) { add(start, 'String or character literal is not closed.'); mode = 'code'; }
+        continue;
+      }
+      if (ch === '/' && next === '/') { mode = 'line'; i++; continue; }
+      if (ch === '/' && next === '*') { mode = 'block'; start = i; i++; continue; }
+      if (ch === '@' && next === '"') { mode = 'string'; quote = '"'; verbatim = true; start = i; i++; continue; }
+      if ((ch === '$' && next === '"') || (ch === '$' && next === '@' && source[i + 2] === '"')) { mode = 'string'; quote = '"'; verbatim = next === '@'; start = i; i += verbatim ? 2 : 1; continue; }
+      if (ch === '"' || ch === "'") { mode = ch === '"' ? 'string' : 'char'; quote = ch; verbatim = false; start = i; continue; }
+      if (opens.has(ch)) stack.push({ ch, offset: i });
+      else if (pairs[ch]) { const open = stack.pop(); if (!open || open.ch !== pairs[ch]) add(i, `Unexpected '${ch}'.`); }
+    }
+    if (mode === 'block') add(start, 'Block comment is not closed.');
+    if (mode === 'string' || mode === 'char') add(start, 'String or character literal is not closed.');
+    for (const item of stack) add(item.offset, `Expected a closing '${item.ch === '(' ? ')' : item.ch === '{' ? '}' : ']'}'.`);
+    return markers;
+  }
+  function validateEditor() {
+    if (!monacoEditor) return;
+    const model = monacoEditor.getModel(); if (!model) return;
+    const markers = languageForPath(state.active) === 'csharp' ? validateCSharp(model.getValue()) : [];
+    monaco.editor.setModelMarkers(model, 'forge-csharp', markers);
+    const status = $('diagnosticStatus'); status.textContent = `● ${markers.length} error${markers.length === 1 ? '' : 's'}`; status.classList.toggle('has-errors', markers.length > 0); status.classList.remove('has-warnings');
+  }
+  function projectCompletions() {
+    const items = [
+      ['MonoBehaviour','class','Unity base class for components'],['GameObject','class','Unity scene object'],['Transform','class','Position, rotation, and scale'],['Rigidbody','class','3D physics body'],['Rigidbody2D','class','2D physics body'],['Collider','class','3D collider'],['Collider2D','class','2D collider'],['Vector2','class','2D vector'],['Vector3','class','3D vector'],['Quaternion','class','Rotation'],['Mathf','class','Unity math helpers'],['Time','class','Frame and time values'],['Input','class','Input system API'],['Debug','class','Logging and debug helpers'],['Camera','class','Scene camera'],['Animator','class','Animation controller'],['List','class','System.Collections.Generic list'],['Dictionary','class','System.Collections.Generic dictionary'],['IEnumerator','class','Coroutine return type'],['SerializeField','property','Serialize a private field'],['GetComponent','method','Get a component from this object'],['Instantiate','method','Create a Unity object'],['Destroy','method','Destroy a Unity object'],['StartCoroutine','method','Start a coroutine'],['Update','method','Called once per frame'],['FixedUpdate','method','Called on the physics timestep'],['Awake','method','Called when the component loads'],['Start','method','Called before the first frame'],['OnEnable','method','Called when the component is enabled'],['OnDisable','method','Called when the component is disabled'],['OnTriggerEnter2D','method','2D trigger callback'],['OnCollisionEnter2D','method','2D collision callback'],['Mathf.Clamp','method','Clamp a value to a range'],['Debug.Log','method','Write to the Unity console'],['Time.deltaTime','field','Time since the last frame'],['if','keyword','Conditional statement'],['else','keyword','Alternative branch'],['for','keyword','For loop'],['foreach','keyword','Collection loop'],['while','keyword','While loop'],['return','keyword','Return from a method'],['new','keyword','Create an object'],['public','keyword','Public access modifier'],['private','keyword','Private access modifier'],['protected','keyword','Protected access modifier'],['class','keyword','Declare a class'],['void','keyword','Method with no return value'],['string','keyword','Text type'],['int','keyword','Integer type'],['float','keyword','Floating-point type'],['bool','keyword','Boolean type'],['var','keyword','Infer a local variable type']
+    ];
+    const seen = new Set(items.map(item => item[0]));
+    for (const file of state.files) if (/\.cs$/i.test(file.path)) { const name = file.path.split('/').pop().replace(/\.cs$/i, ''); if (/^[A-Za-z_]\w*$/.test(name) && !seen.has(name)) { items.push([name, 'class', `Project script · ${file.path}`]); seen.add(name); } }
+    if (monacoEditor) {
+      const text = monacoEditor.getValue();
+      for (const match of text.matchAll(/\b(?:public|private|protected|internal)\s+(?:(?:static|readonly|const|async|virtual|override)\s+)*[\w<>,.?\[\]]+\s+(\w+)\s*\(/g)) if (!seen.has(match[1])) { items.push([match[1], 'method', 'Method in this script']); seen.add(match[1]); }
+      for (const match of text.matchAll(/\b(?:public|private|protected|internal)\s+(?:(?:static|readonly|const|serialized)\s+)*[\w<>,.?\[\]]+\s+(\w+)\s*(?:=|;)/g)) if (!seen.has(match[1])) { items.push([match[1], 'field', 'Field in this script']); seen.add(match[1]); }
+    }
+    return items;
+  }
+  function initializeMonaco() {
+    if (typeof window.require !== 'function') { showToast('Monaco could not load; the basic editor is still available.'); return; }
+    const baseUrl = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/';
+    window.MonacoEnvironment = { getWorkerUrl: () => `data:text/javascript;charset=utf-8,${encodeURIComponent(`self.MonacoEnvironment={baseUrl:'${baseUrl}'};importScripts('${baseUrl}vs/base/worker/workerMain.js');`)}` };
+    window.require.config({ paths: { vs: `${baseUrl}vs` } });
+    window.require(['vs/editor/editor.main'], () => {
+      monacoEditor = monaco.editor.create($('monacoHost'), { value: editor.value, language: 'csharp', theme: 'vs-dark', automaticLayout: true, fontFamily: 'DM Mono, monospace', fontSize: 12, lineHeight: 22, tabSize: 4, insertSpaces: true, minimap: { enabled: false }, scrollBeyondLastLine: false, renderLineHighlight: 'line', padding: { top: 18, bottom: 24 }, readOnly: editor.disabled, suggestOnTriggerCharacters: true, quickSuggestions: true, glyphMargin: true });
+      monaco.editor.defineTheme('forge-dark', { base: 'vs-dark', inherit: true, rules: [{ token: 'keyword', foreground: 'CC94F3' }, { token: 'type.identifier', foreground: '73C6D4' }, { token: 'identifier', foreground: 'C8CAD2' }, { token: 'string', foreground: 'C4D77B' }, { token: 'number', foreground: 'EDAA75' }, { token: 'comment', foreground: '747C84', fontStyle: 'italic' }], colors: { 'editor.background': '#111217', 'editor.foreground': '#c8cad2', 'editorLineNumber.foreground': '#545864', 'editorLineNumber.activeForeground': '#aeb2bd', 'editorCursor.foreground': '#b9f279', 'editor.selectionBackground': '#36402b', 'editor.lineHighlightBackground': '#17191f', 'editorWidget.background': '#1a1c22', 'editorWidget.border': '#3b3e48', 'editorSuggestWidget.background': '#1a1c22', 'editorSuggestWidget.border': '#3b3e48' } });
+      monaco.editor.setTheme('forge-dark'); $('monacoHost').hidden = false; $('gutter').hidden = true; editor.hidden = true; $('editor').classList.add('monaco-active');
+      monaco.languages.registerCompletionItemProvider('csharp', { triggerCharacters: ['.', '['], provideCompletionItems(model, position) {
+        const word = model.getWordUntilPosition(position); const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+        return { suggestions: projectCompletions().map(([label, kind, detail]) => ({ label, kind: monaco.languages.CompletionItemKind[kind === 'class' ? 'Class' : kind === 'method' ? 'Method' : kind === 'field' ? 'Field' : kind === 'keyword' ? 'Keyword' : 'Property'], detail, insertText: label, range })) };
+      } });
+      monacoEditor.onDidChangeModelContent(() => { if (!state.active) return; state.edits.set(state.active, monacoEditor.getValue()); updateGutter(); updateChanges(); validateEditor(); });
+      monacoEditor.onDidChangeCursorPosition(event => { $('lnStat').textContent = event.position.lineNumber; });
+      monacoEditor.onDidChangeModel(() => validateEditor());
+      monacoEditor.layout(); validateEditor();
+    }, error => { console.warn('Monaco failed to load; continuing with the basic text editor.', error); });
+  }
   function dirtyFiles() { return [...state.edits].filter(([path, content]) => content !== state.originals.get(path)).map(([path, content]) => ({ path, content })); }
   function updateChanges() {
     const dirty = dirtyFiles(); const root = $('changes'); root.replaceChildren();
@@ -161,7 +236,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         const data = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/file?ref=${encodeURIComponent(state.branch)}&path=${encodeURIComponent(filePath)}`);
         content = data.content; state.originals.set(filePath, content); state.edits.set(filePath, content);
       }
-      editor.value = content; editor.disabled = false; editor.dataset.path = filePath; updateGutter();
+      setEditorValue(content); setEditorDisabled(false); editor.dataset.path = filePath; if (monacoEditor) { monaco.editor.setModelLanguage(monacoEditor.getModel(), languageForPath(filePath)); validateEditor(); } updateGutter();
       $('breadcrumb').textContent = filePath; $('tabName').textContent = filePath.split('/').pop();
       document.querySelector('.crumbline span').textContent = state.repo.full_name;
       $('resultTitle').textContent = 'Ready to check'; $('resultTag').textContent = state.unityConfigured ? 'READY' : 'NO RUNNER';
@@ -183,7 +258,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       if (tree.truncated) showToast('GitHub returned a partial file tree for this large repository.');
       refreshTree();
       const first = state.files.find(file => /\.cs$/i.test(file.path)) || state.files.find(file => /\.(json|txt|asmdef)$/i.test(file.path));
-      if (first) await openFile(first.path); else { editor.value = ''; editor.disabled = true; $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
+      if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
     } catch (error) { showToast(error.message); }
   }
   async function openRepoPicker() {
@@ -209,6 +284,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     if (!session.authenticated) { showGate(new URLSearchParams(location.search).has('auth') ? 'GitHub sign-in did not complete. Please try again.' : new URLSearchParams(location.search).has('setup') ? 'Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and SESSION_SECRET in .env, then restart the server.' : ''); return; }
     state.unityConfigured = session.unityConfigured;
     showWorkspace();
+    initializeMonaco();
     refreshTree();
     const avatar = document.querySelector('.avatar'); avatar.textContent = (session.user?.login || 'GH').slice(0, 2).toUpperCase(); avatar.title = session.user?.login || 'GitHub';
     document.querySelector('.saved').innerHTML = '<i></i>' + esc(session.user?.login || 'GitHub connected');
@@ -246,7 +322,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       } catch (error) { showToast(error.message); }
       finally { updateChanges(); }
     });
-    $('discardBtn').addEventListener('click', () => { for (const file of dirtyFiles()) state.edits.set(file.path, state.originals.get(file.path)); if (state.active) editor.value = state.edits.get(state.active) || ''; updateGutter(); updateChanges(); showToast('Local edits discarded.'); });
+    $('discardBtn').addEventListener('click', () => { for (const file of dirtyFiles()) state.edits.set(file.path, state.originals.get(file.path)); if (state.active) setEditorValue(state.edits.get(state.active) || ''); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
     const importButton = $('importBtn'); importButton.replaceWith(importButton.cloneNode(true));
     $('importBtn').addEventListener('click', openRepoPicker);
     const connectNew = $('connectBtn').cloneNode(true); $('connectBtn').replaceWith(connectNew); connectNew.textContent = '⌘　 Switch repository'; connectNew.addEventListener('click', openRepoPicker);
