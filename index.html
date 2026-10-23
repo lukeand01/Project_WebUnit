@@ -277,7 +277,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       const scoreProjectRoot = assetsPath => { const projectRoot = assetsPath.slice(0, -(assetsPath.split('/').pop().length + 1)); const prefix = projectRoot ? `${projectRoot}/` : ''; return Number([...paths].some(path => path.startsWith(`${prefix}packages/`))) + Number([...paths].some(path => path.startsWith(`${prefix}projectsettings/`))); };
       candidates.sort((a, b) => scoreProjectRoot(b) - scoreProjectRoot(a) || b.split('/').length - a.split('/').length);
       state.assetsRoot = candidates[0] || 'Assets'; state.activeFolder = state.assetsRoot; state.expandedFolders = new Set();
-      const assetsPrefixForHidden = `${state.assetsRoot}/`.toLowerCase(); state.hidden = new Set(state.files.filter(file => file.path.toLowerCase().startsWith(assetsPrefixForHidden) && /\.asset$/i.test(file.path)).map(file => file.path));
+      const assetsPrefixForHidden = `${state.assetsRoot}/`.toLowerCase(); state.hidden = new Set(state.files.filter(file => file.path.toLowerCase().startsWith(assetsPrefixForHidden) && /\.(asset|meta)$/i.test(file.path)).map(file => file.path));
       if (tree.truncated) showToast('GitHub returned a partial file tree for this large repository.');
       refreshTree(); updateChanges();
       await api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/commits?ref=${encodeURIComponent(state.branch)}`).then(commits => renderRecentCommit(commits[0])).catch(error => { renderRecentCommit(null); showToast(`Recent commit could not load: ${error.message}`); });
