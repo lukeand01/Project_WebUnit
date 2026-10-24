@@ -32,6 +32,7 @@
     .filetab .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .filetab .tab-close{margin-left:auto;border:0;border-radius:3px;background:transparent;color:#878c98;font-size:15px;line-height:20px;width:20px;height:22px;padding:0}.filetab .tab-close:hover{background:#3b3d42;color:#fff}
     .sidebar-commit{margin:8px 9px 10px}.commit-description{display:block;width:100%;min-height:58px;margin-top:7px;resize:vertical;border:1px solid #343742;border-radius:5px;background:#111217;color:var(--text);padding:7px 8px;font:11px/1.45 var(--sans)}.commit-description::placeholder{color:#747987}.commit-label{font:10px var(--mono);letter-spacing:.6px;color:#9297a2;margin-bottom:8px}.commit-box .commit-input{height:33px}.commit-btn:disabled{cursor:not-allowed}
+    .recent-commit{margin:0 9px 8px;padding:7px 9px 9px;border-top:1px solid #343740;min-width:0}.recent-commit-label{font:9px var(--mono);letter-spacing:.55px;color:#818692;margin-bottom:5px}.recent-commit-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7dae2;font-size:10px;text-decoration:none}.recent-commit-name:hover{color:#80d8ff}.recent-commit-meta{margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#747987;font:9px var(--mono)}
     .editor.monaco-active{overflow:visible!important;position:relative}.monaco-host,.monaco-host>.monaco-editor{overflow:visible}.main{min-width:0}.tabline:empty{display:none}
     @media(max-width:1000px){.layout{grid-template-columns:var(--sidebar-width,260px) 5px minmax(0,1fr)}}@media(max-width:800px){.layout{grid-template-columns:var(--sidebar-width,220px) 5px minmax(0,1fr)}}
   </style>
@@ -56,6 +57,11 @@
         <textarea class="commit-description" id="commitDescription" placeholder="Description (optional)" aria-label="Commit description" rows="3"></textarea>
         <button class="commit-btn" id="pushBtn" disabled>Commit &amp; push</button>
         <div class="push-note" id="pushNote">No unsaved changes</div>
+      </section>
+      <section class="recent-commit" aria-label="Latest commit">
+        <div class="recent-commit-label">LAST COMMIT</div>
+        <a class="recent-commit-name" id="lastCommitName" href="#" target="_blank" rel="noopener noreferrer">Open a repository</a>
+        <div class="recent-commit-meta" id="lastCommitMeta"></div>
       </section>
     </aside>
     <div class="sidebar-resizer" id="sidebarResizer" title="Drag to resize the file sidebar" aria-label="Resize file sidebar" role="separator" aria-orientation="vertical" tabindex="0"></div>
@@ -328,6 +334,19 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     const chosen = [...state.selected]; $('moveSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').textContent = chosen.length && chosen.every(filePath => state.hidden.has(filePath)) ? `Restore selected (${chosen.length})` : chosen.length ? `Hide selected (${chosen.length})` : 'Hide selected'; $('toggleHiddenBtn').textContent = state.showHidden ? `Hide hidden (${state.hidden.size})` : `Show hidden (${state.hidden.size})`;
     const status = document.querySelector('.pushstatus'); if (status) status.textContent = dirty.length ? `● ${dirty.length} unsaved change${dirty.length === 1 ? '' : 's'}` : '● Synced to GitHub';
   }
+  async function loadLatestCommit() {
+    const name = $('lastCommitName'), meta = $('lastCommitMeta');
+    if (!state.repo) { name.textContent = 'Open a repository'; name.removeAttribute('href'); meta.textContent = ''; return; }
+    name.textContent = 'Loading latest commit…'; name.removeAttribute('href'); meta.textContent = '';
+    try {
+      const commits = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/commits?ref=${encodeURIComponent(state.branch)}`);
+      const commit = commits[0];
+      if (!commit) { name.textContent = 'No commits yet'; return; }
+      name.textContent = commit.message || 'Untitled commit';
+      if (typeof commit.url === 'string' && new URL(commit.url).hostname === 'github.com') name.href = commit.url;
+      meta.textContent = [commit.author, relativeTime(commit.date)].filter(Boolean).join(' · ');
+    } catch (error) { name.textContent = 'Could not load latest commit'; meta.textContent = error.message; }
+  }
   function refreshTree() {
     const tree = $('tree'); tree.replaceChildren();
     const label = document.createElement('div'); label.className = 'tree-label'; label.textContent = 'ASSETS'; tree.append(label);
@@ -392,6 +411,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     renderTabs(); updateChanges();
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
+    loadLatestCommit();
     try {
       const [branchNames, tree] = await Promise.all([
         api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/branches`),
@@ -545,7 +565,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       $('pushBtn').disabled = true; $('pushBtn').textContent = '◌  Committing…';
       try {
         const result = await commitFiles(state.branch, state.branch, message, files);
-        $('commitMessage').value = ''; $('commitDescription').value = ''; showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
+        $('commitMessage').value = ''; $('commitDescription').value = ''; loadLatestCommit(); showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
       } catch (error) { showToast(error.message); }
       finally { updateChanges(); }
     });
