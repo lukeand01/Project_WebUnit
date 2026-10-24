@@ -14,7 +14,6 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 const UNITY_EDITOR_PATH = process.env.UNITY_EDITOR_PATH;
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 const ROOT = __dirname;
-const sessions = new Map();
 const oauthStates = new Map();
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 const GITHUB_API = 'https://api.github.com';
@@ -37,27 +36,61 @@ function cookieValue(req, name) {
   const match = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : '';
 }
-function sign(value) { return crypto.createHmac('sha256', SESSION_SECRET).update(value).digest('hex'); }
-function sessionFor(req) {
-  if (!SESSION_SECRET) return null;
-  const raw = cookieValue(req, 'forge_session');
-  const split = raw.lastIndexOf('.');
-  if (split < 0) return null;
-  const id = raw.slice(0, split), signature = raw.slice(split + 1);
-  const expected = sign(id);
-  if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-  const session = sessions.get(id);
-  if (!session || session.expiresAt < Date.now()) { sessions.delete(id); return null; }
-  session.expiresAt = Date.now() + SESSION_TTL;
-  return session;
+function cookieKey() { return crypto.createHash('sha256').update(SESSION_SECRET || '').digest(); }
+function encodeSession(session) {
+  const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', cookieKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(session), 'utf8'), cipher.final()]);
+  return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
 }
-function setSessionCookie(res, id, maxAge = SESSION_TTL / 1000) {
-  const secure = COOKIE_SECURE ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `forge_session=${encodeURIComponent(`${id}.${sign(id)}`)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`);
+function decodeSession(value) {
+  if (!SESSION_SECRET || !value) return null;
+  try {
+    const [ivValue, tagValue, encryptedValue] = value.split('.'); if (!ivValue || !tagValue || !encryptedValue) return null;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', cookieKey(), Buffer.from(ivValue, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagValue, 'base64url'));
+    return JSON.parse(Buffer.concat([decipher.update(Buffer.from(encryptedValue, 'base64url')), decipher.final()]).toString('utf8'));
+  } catch { return null; }
+}
+function setSessionCookie(res, session) {
+  const secure = COOKIE_SECURE || process.env.NODE_ENV === 'production' || process.env.RENDER ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `forge_session=${encodeURIComponent(encodeSession(session))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL / 1000)}${secure}`);
 }
 function clearSessionCookie(res) {
-  const secure = COOKIE_SECURE ? '; Secure' : '';
+  const secure = COOKIE_SECURE || process.env.NODE_ENV === 'production' || process.env.RENDER ? '; Secure' : '';
   res.setHeader('Set-Cookie', `forge_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);
+}
+async function refreshSessionToken(session) {
+  if (!session.refreshToken || !session.accessTokenExpiresAt || session.accessTokenExpiresAt - Date.now() > 15 * 60 * 1000) return session;
+  if (!CLIENT_ID || !CLIENT_SECRET || (session.refreshTokenExpiresAt && session.refreshTokenExpiresAt <= Date.now())) return null;
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: 'refresh_token', refresh_token: session.refreshToken })
+  });
+  const token = await response.json();
+  if (!response.ok || token.error || !token.access_token || !token.refresh_token) return null;
+  session.accessToken = token.access_token; session.refreshToken = token.refresh_token;
+  session.accessTokenExpiresAt = Date.now() + Number(token.expires_in || 0) * 1000;
+  session.refreshTokenExpiresAt = Date.now() + Number(token.refresh_token_expires_in || 0) * 1000;
+  return session;
+}
+async function sessionFor(req, res) {
+  const session = decodeSession(cookieValue(req, 'forge_session'));
+  if (!session || !session.accessToken || session.expiresAt <= Date.now()) { clearSessionCookie(res); return null; }
+  const refreshed = await refreshSessionToken(session);
+  if (!refreshed) { clearSessionCookie(res); return null; }
+  refreshed.expiresAt = Date.now() + SESSION_TTL;
+  setSessionCookie(res, refreshed);
+  return refreshed;
+}
+async function revokeGithubGrant(session) {
+  if (!session?.accessToken || !CLIENT_ID || !CLIENT_SECRET) return false;
+  try {
+    const response = await fetch(`${GITHUB_API}/applications/${encodeURIComponent(CLIENT_ID)}/grant`, {
+      method: 'DELETE', headers: { Authorization: `Basic ${Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64')}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+      body: JSON.stringify({ access_token: session.accessToken })
+    });
+    return response.ok || response.status === 404;
+  } catch { return false; }
 }
 function redirect(res, location) { res.writeHead(302, { Location: location, 'Cache-Control': 'no-store' }); res.end(); }
 function validSlug(value) { return /^[A-Za-z0-9_.-]{1,100}$/.test(value) && value !== '.' && value !== '..'; }
@@ -131,7 +164,7 @@ async function handle(req, res) {
     const authorize = new URL('https://github.com/login/oauth/authorize');
     authorize.searchParams.set('client_id', CLIENT_ID);
     authorize.searchParams.set('redirect_uri', CALLBACK_URL);
-    authorize.searchParams.set('scope', 'repo');
+    authorize.searchParams.set('scope', 'repo offline_access');
     authorize.searchParams.set('state', state);
     return redirect(res, authorize.toString());
   }
@@ -147,21 +180,32 @@ async function handle(req, res) {
       });
       const token = await tokenResponse.json();
       if (!tokenResponse.ok || token.error || !token.access_token) throw new Error('GitHub authorization failed');
-      const session = { accessToken: token.access_token, expiresAt: Date.now() + SESSION_TTL };
+      const session = {
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token || null,
+        accessTokenExpiresAt: token.expires_in ? Date.now() + Number(token.expires_in) * 1000 : 0,
+        refreshTokenExpiresAt: token.refresh_token_expires_in ? Date.now() + Number(token.refresh_token_expires_in) * 1000 : 0,
+        expiresAt: Date.now() + SESSION_TTL
+      };
       const profile = await github(session, '/user');
       session.user = { login: profile.login, name: profile.name, avatar_url: profile.avatar_url };
-      const id = crypto.randomBytes(32).toString('hex');
-      sessions.set(id, session);
-      setSessionCookie(res, id);
+      setSessionCookie(res, session);
       return redirect(res, '/');
     } catch (error) { console.error('GitHub OAuth callback:', error.message); return redirect(res, '/?auth=failed'); }
   }
   if (pathname.startsWith('/api/')) {
-    const session = sessionFor(req);
-    if (pathname === '/api/session' && req.method === 'GET') return send(res, 200, { authenticated: Boolean(session), user: session?.user || null, unityConfigured: Boolean(UNITY_EDITOR_PATH && fs.existsSync(UNITY_EDITOR_PATH)) });
     if (pathname === '/api/logout' && req.method === 'POST') {
-      const raw = cookieValue(req, 'forge_session'); const id = raw.split('.')[0]; sessions.delete(id); clearSessionCookie(res); return send(res, 200, { ok: true });
+      let revoked = true;
+      try {
+        let session = decodeSession(cookieValue(req, 'forge_session'));
+        if (session) session = await refreshSessionToken(session);
+        revoked = session ? await revokeGithubGrant(session) : true;
+      } catch { revoked = false; }
+      finally { clearSessionCookie(res); }
+      return send(res, 200, { ok: true, revoked });
     }
+    const session = await sessionFor(req, res);
+    if (pathname === '/api/session' && req.method === 'GET') return send(res, 200, { authenticated: Boolean(session), user: session?.user || null, unityConfigured: Boolean(UNITY_EDITOR_PATH && fs.existsSync(UNITY_EDITOR_PATH)) });
     if (!session) return send(res, 401, { error: 'Sign in with GitHub to continue.' });
     if (req.method === 'GET' && pathname === '/api/repos') {
       const repos = await github(session, '/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member');
@@ -198,7 +242,18 @@ async function handle(req, res) {
       if (action === 'commit' && req.method === 'POST') {
         const body = await readBody(req);
         if (!validSlug(body.branch || '') || !body.message?.trim() || !Array.isArray(body.files) || !body.files.length || body.files.length > 30) return send(res, 400, { error: 'Provide a branch, commit message, and up to 30 changed files.' });
-        const branch = await github(session, `${base}/branches/${encodeURIComponent(body.branch)}`);
+        let branch;
+        try { branch = await github(session, `${base}/branches/${encodeURIComponent(body.branch)}`); }
+        catch (error) {
+          if (error.status !== 404 || !body.baseBranch || !validSlug(body.baseBranch)) throw error;
+          const source = await github(session, `${base}/branches/${encodeURIComponent(body.baseBranch)}`);
+          try {
+            await github(session, `${base}/git/refs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: `refs/heads/${body.branch}`, sha: source.commit.sha }) });
+          } catch (createError) {
+            if (createError.status !== 422) throw createError;
+          }
+          branch = await github(session, `${base}/branches/${encodeURIComponent(body.branch)}`);
+        }
         const parent = await github(session, `${base}/git/commits/${branch.commit.sha}`);
         const tree = [];
         for (const file of body.files) {
@@ -255,4 +310,4 @@ const server = http.createServer((req, res) => {
   });
 });
 server.listen(PORT, () => console.log(`Forge is listening at http://localhost:${PORT}`));
-for (const map of [sessions, oauthStates]) setInterval(() => { const now = Date.now(); for (const [key, item] of map) if ((item.expiresAt || item) < now) map.delete(key); }, 60 * 60 * 1000).unref();
+setInterval(() => { const now = Date.now(); for (const [key, expiresAt] of oauthStates) if (expiresAt < now) oauthStates.delete(key); }, 60 * 60 * 1000).unref();

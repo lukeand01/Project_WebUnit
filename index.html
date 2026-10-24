@@ -21,14 +21,27 @@
     .topbar,.tabline,.statusbar{background:#252526}.sidebar,.inspector{background:#202124}.main{background:#1e1e1e}.tabline{border-color:#3f3f46}.filetab.active{background:#1e1e1e}.tree-row.active{background:#29333a;color:#f0f0f0}.github-connect,.commit-btn,.modal-actions button{background:#303033}.commit-box,.compile-result,.repo-card,.modal{background:#252526}.compile-btn,.github-login{background:#57aeff;color:#111820}.compile-btn:hover,.github-login:hover{background:#80d8ff}.unity-dot{background:#14d368;box-shadow:0 0 10px #14d36870}.auth-gate{background:radial-gradient(ellipse at 52% 42%,#30363b 0,#202124 44%,#1e1e1e 78%)}.mark{background:#2f3337;color:#80d8ff;border:1px solid #51565b}.brand{min-width:207px}.activity-link{display:block;color:inherit;text-decoration:none;border-radius:4px;padding:4px;margin:-4px}.activity-link:hover{background:#30353a}.activity-link #recentMessage{color:#e6e6e6}.filetab .fileicon{color:#80d8ff}
   </style>
   <style>.file-actions{display:flex;gap:4px;padding:0 9px 7px}.file-actions button{min-width:0;flex:1;padding:5px 3px;border:1px solid #3f3f46;border-radius:4px;background:#252526;color:#b9bdc8;font-size:9px}.file-actions button:hover:not(:disabled){border-color:#80d8ff;color:#e6e6e6}.file-actions button:disabled{opacity:.45;cursor:not-allowed}.file-row{gap:7px}.file-row.selected,.tree-row.active{background:#174a76!important;color:#f4faff!important;box-shadow:inset 3px 0 0 #42a5f5}.file-row.hidden-file{opacity:.55}.sidebar-resizer.dragging{background:#57aeff}</style>
+  <style>
+    .layout{grid-template-columns:var(--sidebar-width,280px) 5px minmax(0,1fr)}
+    .sidebar .tree{flex:1;min-height:0}
+    .top-project,.top-tag,.saved,.avatar{display:none!important}.top-right{margin-left:auto}
+    .sign-out-btn{height:30px;padding:0 12px;border:1px solid #444851;border-radius:5px;background:#303033;color:#d8dbe2;font-size:11px}.sign-out-btn:hover{border-color:#80d8ff;color:#fff}
+    .crumbline{padding:0 16px}.crumbline .right{display:none}
+    .tabline{overflow-x:auto;overflow-y:hidden;padding:0 8px;flex:none;scrollbar-width:thin}
+    .filetab{flex:none;max-width:240px;min-width:120px;border-right:1px solid var(--line);border-left:1px solid transparent;padding:0 10px;gap:7px}
+    .filetab .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .filetab .tab-close{margin-left:auto;border:0;border-radius:3px;background:transparent;color:#878c98;font-size:15px;line-height:20px;width:20px;height:22px;padding:0}.filetab .tab-close:hover{background:#3b3d42;color:#fff}
+    .sidebar-commit{margin:8px 9px 10px}.commit-description{display:block;width:100%;min-height:58px;margin-top:7px;resize:vertical;border:1px solid #343742;border-radius:5px;background:#111217;color:var(--text);padding:7px 8px;font:11px/1.45 var(--sans)}.commit-description::placeholder{color:#747987}.commit-label{font:10px var(--mono);letter-spacing:.6px;color:#9297a2;margin-bottom:8px}.commit-box .commit-input{height:33px}.commit-btn:disabled{cursor:not-allowed}
+    .editor.monaco-active{overflow:visible!important;position:relative}.monaco-host,.monaco-host>.monaco-editor{overflow:visible}.main{min-width:0}.tabline:empty{display:none}
+    @media(max-width:1000px){.layout{grid-template-columns:var(--sidebar-width,260px) 5px minmax(0,1fr)}}@media(max-width:800px){.layout{grid-template-columns:var(--sidebar-width,220px) 5px minmax(0,1fr)}}
+  </style>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
     <div class="brand"><span class="mark">W</span> My Web Unity</div>
-    <div class="top-project"><span class="crumb-muted">workspace /</span><span>starfall</span><span class="branch-pill">⌥ main</span></div>
-    <div class="top-right"><span class="top-tag">DEMO PREVIEW</span><span class="saved"><i></i>Sample workspace</span><span class="avatar">JD</span></div>
+    <div class="top-right"><button class="sign-out-btn" id="signOutBtn" type="button">Sign out</button></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -37,22 +50,21 @@
       <div class="file-tools"><input class="file-search" id="fileSearch" type="search" placeholder="Search files…" aria-label="Search repository files" title="Filter files by name or path"><button class="new-file-btn" id="createFileBtn" title="Create a file in this repository" aria-label="Create a file">＋</button></div>
       <div class="file-actions"><button id="moveSelectedBtn" disabled>Move selected</button><button id="hideSelectedBtn" disabled>Hide selected</button><button id="toggleHiddenBtn">Show hidden</button></div>
       <div class="tree" id="tree"><div class="tree-label">FILES</div></div>
+      <section class="commit-box sidebar-commit" aria-label="Commit changes">
+        <div class="commit-label">COMMIT CHANGES</div>
+        <input class="commit-input" id="commitMessage" placeholder="Summary" aria-label="Commit summary" maxlength="120" />
+        <textarea class="commit-description" id="commitDescription" placeholder="Description (optional)" aria-label="Commit description" rows="3"></textarea>
+        <button class="commit-btn" id="pushBtn" disabled>Commit &amp; push</button>
+        <div class="push-note" id="pushNote">No unsaved changes</div>
+      </section>
     </aside>
     <div class="sidebar-resizer" id="sidebarResizer" title="Drag to resize the file sidebar" aria-label="Resize file sidebar" role="separator" aria-orientation="vertical" tabindex="0"></div>
     <main class="main">
-      <div class="crumbline"><span>Assets</span><span>/</span><span>Scripts</span><span>/</span><b id="breadcrumb">PlayerController.cs</b><span class="right"><button class="icon-btn" title="Search">⌕</button><button class="icon-btn" title="More options">···</button></span></div>
-      <div class="tabline"><div class="filetab active"><span class="fileicon">C#</span><span id="tabName">PlayerController.cs</span><span class="x">×</span></div></div>
+      <div class="crumbline"><b id="breadcrumb">Select a file from Assets</b></div>
+      <div class="tabline" id="tabline" role="tablist" aria-label="Open files"></div>
       <div class="editor" id="editor" aria-label="Code editor"><div class="monaco-host" id="monacoHost" hidden></div><div class="gutter" id="gutter"></div><textarea class="source-editor" id="sourceEditor" spellcheck="false" aria-label="C# source editor" disabled></textarea></div>
       <div class="statusbar"><span>Ln <b id="lnStat">1</b>, Col 1</span><span>Spaces: 4</span><span>UTF-8</span><span id="diagnosticStatus">● 0 errors</span><span class="pushstatus">● Synced to GitHub</span></div>
     </main>
-    <aside class="inspector">
-      <div class="inspect-head"><span>BUILD &amp; SOURCE CONTROL</span><button class="icon-btn" title="More">···</button></div>
-      <div class="run-head"><div class="run-title"><span class="unity-dot"></span> Unity checks</div><div class="run-sub">Preview the script check flow</div><button class="compile-btn" id="compileBtn">▶ &nbsp; Preview script check</button><div class="compile-meta"><span>Sample · Unity 2022.3 LTS</span><span>~ 2 sec</span></div></div>
-      <div class="compile-result" id="result"><div class="result-header"><span class="result-dot"></span><span id="resultTitle">Sample check passed</span><span class="result-tag" id="resultTag">SAMPLE</span></div><div class="result-body" id="resultBody"><div class="result-row"><span class="check">✓</span> C# compilation</div><div class="result-row"><span class="check">✓</span> 12 scripts checked</div><div class="result-foot">EXAMPLE OUTPUT · 0 errors · 0 warnings</div></div></div>
-      <div class="section"><div class="section-head"><span class="section-title">CHANGES</span><button class="small-action" id="discardBtn">Discard all</button></div><div id="changes"><div class="change-row"><span class="change-badge">M</span><span class="change-file">PlayerController.cs</span></div><div class="change-row"><span class="change-badge">M</span><span class="change-file">EnemyAI.cs</span></div></div></div>
-      <div class="commit-box"><div class="commit-label">Commit message</div><input class="commit-input" id="commitMessage" value="Tune player movement" aria-label="Commit message" /><button class="commit-btn" id="pushBtn">↑ &nbsp; Preview commit &amp; push</button><div class="push-note" id="pushNote">Sample changes · main → origin</div></div>
-      <div class="activity"><span class="section-title">RECENT COMMIT</span><span class="activity-time" id="recentTime">—</span><p><a class="activity-link" id="recentCommitLink" href="#" target="_blank" rel="noopener noreferrer"><b id="recentMessage">Select a repository to see its latest commit.</b><br><span id="recentAuthor">—</span> · <span id="recentSha" style="font-family:var(--mono)">—</span></a></p></div>
-    </aside>
   </div>
 </div>
 <div class="auth-gate" id="authGate"><div class="auth-card"><div class="auth-brand"><span class="mark">W</span> My Web Unity</div><h1>Your Unity projects,<br/>wherever you are.</h1><p>Sign in with GitHub to browse your repositories, edit Unity scripts, run a script check, and push your changes back.</p><div class="auth-error" id="authError" hidden></div><button class="github-login" id="loginBtn">⌘ &nbsp; Continue with GitHub</button><div class="auth-foot">Your repositories stay on GitHub. This independent project is not affiliated with Unity Technologies.</div></div></div>
@@ -67,18 +79,15 @@ const samples={
  'EnemyAI.cs':[['<span class="kw">using</span> UnityEngine;'],[''],['<span class="kw">public class</span> <span class="type">EnemyAI</span> : <span class="type">MonoBehaviour</span>'],['{'],['    <span class="attr">[SerializeField]</span> <span class="kw">private float</span> patrolSpeed = <span class="num">2f</span>;'],['    <span class="kw">private Transform</span> target;'],[''],['    <span class="kw">private void</span> <span class="fn">Update</span>()'],['    {'],['        <span class="kw">if</span> (target == <span class="kw">null</span>) <span class="kw">return</span>;'],['        transform.position = Vector3.<span class="fn">MoveTowards</span>('],['            transform.position, target.position, patrolSpeed * Time.deltaTime);'],['    }'],['}']],
  'HealthSystem.cs':[['<span class="kw">using</span> UnityEngine;'],[''],['<span class="kw">public class</span> <span class="type">HealthSystem</span> : <span class="type">MonoBehaviour</span>'],['{'],['    <span class="attr">[SerializeField]</span> <span class="kw">private int</span> maxHealth = <span class="num">100</span>;'],['    <span class="kw">private int</span> currentHealth;'],[''],['    <span class="kw">private void</span> <span class="fn">Start</span>()'],['    {'],['        currentHealth = maxHealth;'],['    }'],[''],['    <span class="kw">public void</span> <span class="fn">TakeDamage</span>(<span class="kw">int</span> amount)'],['    {'],['        currentHealth = Mathf.<span class="fn">Max</span>(<span class="num">0</span>, currentHealth - amount);'],['    }'],['}']]
 };
-function renderCode(file){const lines=samples[file]||samples['PlayerController.cs'];document.getElementById('editor').innerHTML=lines.map((l,i)=>`<div class="code-line"><span class="ln">${i+1}</span><span class="code">${l[0]||' '}</span></div>`).join('');document.getElementById('breadcrumb').textContent=file;document.getElementById('tabName').textContent=file;document.getElementById('lnStat').textContent=lines.length;document.querySelectorAll('.tree-row[data-file]').forEach(x=>x.classList.toggle('active',x.dataset.file===file));}
+  function renderCode(file){const lines=samples[file]||samples['PlayerController.cs'];document.getElementById('editor').innerHTML=lines.map((l,i)=>`<div class="code-line"><span class="ln">${i+1}</span><span class="code">${l[0]||' '}</span></div>`).join('');document.getElementById('breadcrumb').textContent=file;document.getElementById('lnStat').textContent=lines.length;document.querySelectorAll('.tree-row[data-file]').forEach(x=>x.classList.toggle('active',x.dataset.file===file));}
 document.querySelectorAll('.tree-row[data-file]').forEach(row=>row.addEventListener('click',()=>renderCode(row.dataset.file)));
 let toastTimer;function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600)}
-document.getElementById('compileBtn').addEventListener('click',function(){this.disabled=true;this.textContent='◌  Checking sample…';document.getElementById('resultTitle').textContent='Preview running';document.getElementById('resultTag').textContent='RUNNING';document.getElementById('resultTag').style.color='var(--orange)';document.getElementById('resultBody').innerHTML='<div class="result-row">Showing the Unity check flow…</div><div class="result-foot">DEMO PREVIEW</div>';setTimeout(()=>{this.disabled=false;this.textContent='▶  Preview script check';document.getElementById('resultTitle').textContent='Sample check passed';document.getElementById('resultTag').textContent='SAMPLE';document.getElementById('resultTag').style.color='var(--green)';document.getElementById('resultBody').innerHTML='<div class="result-row"><span class="check">✓</span> C# compilation</div><div class="result-row"><span class="check">✓</span> 12 scripts checked</div><div class="result-foot">EXAMPLE OUTPUT · 0 errors · 0 warnings</div>';toast('Preview complete · real Unity checks need a build runner');},1200)});
-document.getElementById('pushBtn').addEventListener('click',function(){const msg=document.getElementById('commitMessage').value.trim();if(!msg){toast('Add a commit message first');document.getElementById('commitMessage').focus();return}this.disabled=true;this.textContent='◌  Previewing…';setTimeout(()=>{this.disabled=false;this.textContent='✓  Preview complete';toast('Commit flow previewed · connect GitHub to push for real');setTimeout(()=>this.innerHTML='↑ &nbsp; Preview commit &amp; push',2500)},800)});
-document.getElementById('discardBtn').addEventListener('click',()=>toast('Discard changes is available in the connected workspace'));
 const modal=document.getElementById('modalBack');document.getElementById('importBtn').addEventListener('click',()=>modal.classList.add('show'));document.getElementById('connectBtn').addEventListener('click',()=>{modal.classList.add('show');setTimeout(()=>document.getElementById('repoUrl').focus(),50)});document.getElementById('cancelModal').addEventListener('click',()=>modal.classList.remove('show'));modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('show')});document.getElementById('importRepo').addEventListener('click',()=>{const url=document.getElementById('repoUrl').value.trim();if(!url){toast('Paste a GitHub repository URL to continue');document.getElementById('repoUrl').focus();return}modal.classList.remove('show');toast('GitHub sign-in will be connected in the next setup step')});document.addEventListener('keydown',e=>{if(e.key==='Escape')modal.classList.remove('show')});
 </script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { repos: [], repo: null, branches: [], branch: '', files: [], assetsRoot: 'Assets', active: '', activeFolder: 'Assets', expandedFolders: new Set(), originals: new Map(), edits: new Map(), deleted: new Map(), selected: new Set(), lastSelectedPath: '', hidden: new Set(), showHidden: false, fileSearch: '', unityConfigured: false, user: null };
+  const state = { repos: [], repo: null, branches: [], branch: '', files: [], assetsRoot: 'Assets', active: '', activeFolder: 'Assets', expandedFolders: new Set(), originals: new Map(), edits: new Map(), deleted: new Map(), selected: new Set(), lastSelectedPath: '', hidden: new Set(), showHidden: false, fileSearch: '', unityConfigured: false, user: null, openTabs: [], editorModels: new Map(), viewStates: new Map() };
   const editor = $('sourceEditor'), gate = $('authGate'), app = document.querySelector('.app'), modal = $('modalBack');
   let monacoEditor = null;
   let syntaxDecorationIds = [];
@@ -86,7 +95,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   async function api(url, options = {}) {
     const response = await fetch(url, { credentials: 'same-origin', ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
     let data; try { data = await response.json(); } catch { data = {}; }
-    if (response.status === 401) { showGate('Please sign in with GitHub to continue.'); throw new Error(data.error || 'Sign in required'); }
+    if (response.status === 401) { if (dirtyFiles().length) showToast('GitHub authorization expired. Sign in again to save your unsaved edits.'); else showGate('Please sign in with GitHub to continue.'); throw new Error(data.error || 'Sign in required'); }
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
     return data;
   }
@@ -94,7 +103,37 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   function showWorkspace() { gate.classList.add('workspace-hidden'); app.classList.remove('workspace-hidden'); }
   function esc(value) { return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
   function relativeTime(value) { const timestamp = Date.parse(value || ''); if (!Number.isFinite(timestamp)) return 'time unknown'; const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000)); const unit = seconds < 60 ? ['second', seconds] : seconds < 3600 ? ['minute', Math.floor(seconds / 60)] : seconds < 86400 ? ['hour', Math.floor(seconds / 3600)] : ['day', Math.floor(seconds / 86400)]; return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-unit[1], unit[0]); }
-  function renderRecentCommit(commit) { const link = $('recentCommitLink'); if (!commit) { link.href = '#'; $('recentMessage').textContent = 'No commits found on this branch.'; $('recentAuthor').textContent = '—'; $('recentSha').textContent = '—'; $('recentTime').textContent = '—'; return; } link.href = commit.url || '#'; $('recentMessage').textContent = commit.message || 'Commit'; $('recentAuthor').textContent = commit.author || state.repo?.owner || 'Unknown'; $('recentSha').textContent = (commit.sha || '').slice(0, 7); $('recentTime').textContent = relativeTime(commit.date); }
+  function renderTabs() {
+    const root = $('tabline'); root.replaceChildren();
+    for (const filePath of state.openTabs) {
+      const tab = document.createElement('div'); tab.className = `filetab${filePath === state.active ? ' active' : ''}`; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(filePath === state.active)); tab.title = filePath;
+      const icon = document.createElement('span'); icon.className = 'fileicon'; icon.textContent = /\.cs$/i.test(filePath) ? 'C#' : '◈';
+      const title = document.createElement('span'); title.className = 'tab-title'; title.textContent = filePath.split('/').pop();
+      const close = document.createElement('button'); close.className = 'tab-close'; close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', `Close ${filePath}`); close.title = `Close ${filePath}`;
+      tab.addEventListener('click', () => openFile(filePath)); close.addEventListener('click', event => { event.stopPropagation(); closeFileTab(filePath); }); tab.append(icon, title, close); root.append(tab);
+    }
+  }
+  function setActiveModel(filePath, content) {
+    if (!monacoEditor || !monaco) { setEditorValue(content); return; }
+    let model = state.editorModels.get(filePath);
+    if (!model || model.isDisposed()) { model = monaco.editor.createModel(content, languageForPath(filePath), monaco.Uri.parse(`inmemory://forge/${encodeURIComponent(filePath)}`)); state.editorModels.set(filePath, model); }
+    else if (model.getValue() !== content) model.setValue(content);
+    monacoEditor.setModel(model); monacoEditor.updateOptions({ readOnly: false });
+    const viewState = state.viewStates.get(filePath); if (viewState) monacoEditor.restoreViewState(viewState);
+  }
+  function closeFileTab(filePath) {
+    const index = state.openTabs.indexOf(filePath); if (index < 0) return;
+    if (state.active === filePath && monacoEditor) { state.viewStates.set(filePath, monacoEditor.saveViewState()); state.edits.set(filePath, monacoEditor.getValue()); }
+    state.openTabs.splice(index, 1); state.viewStates.delete(filePath);
+    const model = state.editorModels.get(filePath); if (model) { if (monacoEditor?.getModel() === model) monacoEditor.setModel(null); model.dispose(); state.editorModels.delete(filePath); }
+    if (state.active === filePath) {
+      state.active = '';
+      const next = state.openTabs[Math.min(index, state.openTabs.length - 1)];
+      if (next) { openFile(next); return; }
+      setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'Select a file from Assets'; $('diagnosticStatus').textContent = '';
+    }
+    renderTabs();
+  }
   function editorValue() { return monacoEditor ? monacoEditor.getValue() : editor.value; }
   function setEditorValue(value) { editor.value = value; if (monacoEditor && monacoEditor.getValue() !== value) monacoEditor.setValue(value); }
   function setEditorDisabled(disabled) { editor.disabled = disabled; if (monacoEditor) monacoEditor.updateOptions({ readOnly: disabled }); }
@@ -184,7 +223,8 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     window.MonacoEnvironment = { getWorkerUrl: () => `data:text/javascript;charset=utf-8,${encodeURIComponent(`self.MonacoEnvironment={baseUrl:'${baseUrl}'};importScripts('${baseUrl}vs/base/worker/workerMain.js');`)}` };
     window.require.config({ paths: { vs: `${baseUrl}vs` } });
     window.require(['vs/editor/editor.main'], () => {
-      monacoEditor = monaco.editor.create($('monacoHost'), { value: editor.value, language: 'csharp', theme: 'vs-dark', automaticLayout: true, fontFamily: 'DM Mono, monospace', fontSize: 12, lineHeight: 22, tabSize: 4, insertSpaces: true, minimap: { enabled: false }, scrollBeyondLastLine: false, renderLineHighlight: 'line', padding: { top: 18, bottom: 24 }, readOnly: editor.disabled, suggestOnTriggerCharacters: true, quickSuggestions: { other: true, comments: false, strings: false }, wordBasedSuggestions: 'allDocuments', acceptSuggestionOnEnter: 'on', suggestSelection: 'first', tabCompletion: 'on', glyphMargin: true });
+      monacoEditor = monaco.editor.create($('monacoHost'), { value: editor.value, language: 'csharp', theme: 'vs-dark', automaticLayout: true, fontFamily: 'DM Mono, monospace', fontSize: 12, lineHeight: 22, tabSize: 4, insertSpaces: true, detectIndentation: false, autoIndent: 'full', minimap: { enabled: false }, scrollBeyondLastLine: false, renderLineHighlight: 'line', padding: { top: 18, bottom: 24 }, readOnly: editor.disabled, suggestOnTriggerCharacters: true, quickSuggestions: { other: true, comments: false, strings: false }, wordBasedSuggestions: 'allDocuments', acceptSuggestionOnEnter: 'on', suggestSelection: 'first', tabCompletion: 'on', glyphMargin: true });
+      monaco.languages.setLanguageConfiguration('csharp', { indentationRules: { increaseIndentPattern: /^.*\{[^}]*$/, decreaseIndentPattern: /^\s*[}\]].*$/ }, onEnterRules: [{ beforeText: /^\s*\{[^}]*$/, action: { indentAction: monaco.languages.IndentAction.Indent } }, { beforeText: /^\s*[({\[][^)}\]]*$/, action: { indentAction: monaco.languages.IndentAction.Indent } }, { beforeText: /^\s*\{[^}]*$/, afterText: /^\s*}/, action: { indentAction: monaco.languages.IndentAction.IndentOutdent } }] });
       monaco.editor.defineTheme('my-web-unity-dark', { base: 'vs-dark', inherit: true, rules: [{ token: 'keyword', foreground: 'CC94F3' }, { token: 'type.identifier', foreground: '73C6D4' }, { token: 'type', foreground: '73C6D4' }, { token: 'class', foreground: '73C6D4' }, { token: 'identifier', foreground: 'E6E6E6' }, { token: 'string', foreground: 'B2FF59' }, { token: 'number', foreground: 'FFC107' }, { token: 'comment', foreground: '929292', fontStyle: 'italic' }, { token: 'variable', foreground: 'E5B567' }, { token: 'method', foreground: '80D8FF' }], colors: { 'editor.background': '#1e1e1e', 'editor.foreground': '#e6e6e6', 'editorLineNumber.foreground': '#858585', 'editorLineNumber.activeForeground': '#f0f0f0', 'editorCursor.foreground': '#80d8ff', 'editor.selectionBackground': '#264f78', 'editor.lineHighlightBackground': '#252526', 'editorWidget.background': '#252526', 'editorWidget.border': '#3f3f46', 'editorSuggestWidget.background': '#252526', 'editorSuggestWidget.foreground': '#f1f5f9', 'editorSuggestWidget.border': '#525866', 'editorSuggestWidget.highlightForeground': '#80d8ff', 'editorSuggestWidget.selectedBackground': '#264f78', 'editorSuggestWidget.selectedForeground': '#ffffff' } });
       const semanticLegend = { tokenTypes: ['type', 'class', 'variable', 'method'], tokenModifiers: [] };
       monaco.languages.registerDocumentSemanticTokensProvider('csharp', { getLegend: () => semanticLegend, provideDocumentSemanticTokens(model) {
@@ -205,6 +245,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         return { data: new Uint32Array(data) };
       }, releaseDocumentSemanticTokens() {} });
       monaco.editor.setTheme('my-web-unity-dark'); $('monacoHost').hidden = false; $('gutter').hidden = true; editor.hidden = true; $('editor').classList.add('monaco-active');
+      if (state.active) { const filePath = state.active, model = monaco.editor.createModel(editor.value, languageForPath(filePath), monaco.Uri.parse(`inmemory://forge/${encodeURIComponent(filePath)}`)); state.editorModels.set(filePath, model); monacoEditor.setModel(model); }
       const completionKinds = monaco.languages.CompletionItemKind;
       const suggestionProvider = monaco.languages.registerCompletionItemProvider('csharp', { triggerCharacters: [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._['], provideCompletionItems(model, position) {
         const word = model.getWordUntilPosition(position), range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
@@ -223,15 +264,69 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     }, error => { console.warn('Monaco failed to load; continuing with the basic text editor.', error); });
   }
   function dirtyFiles() { return [...[...state.edits].filter(([path, content]) => content !== state.originals.get(path)).map(([path, content]) => ({ path, content })), ...[...state.deleted.keys()].map(path => ({ path, deleted: true }))]; }
+  function markCommitted(files) {
+    for (const file of files) {
+      if (file.deleted) { state.originals.delete(file.path); state.edits.delete(file.path); state.deleted.delete(file.path); }
+      else state.originals.set(file.path, file.content);
+    }
+    updateChanges();
+  }
+  async function commitFiles(branch, baseBranch, message, files = dirtyFiles()) {
+    if (!state.repo || !files.length) return null;
+    let lastResult = null;
+    const batches = Array.from({ length: Math.ceil(files.length / 30) }, (_, i) => files.slice(i * 30, (i + 1) * 30));
+    for (let index = 0; index < batches.length; index++) {
+      const batchMessage = batches.length > 1 ? `${message}\n\nBackup batch ${index + 1} of ${batches.length}.` : message;
+      lastResult = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/commit`, { method: 'POST', body: JSON.stringify({ branch, baseBranch, message: batchMessage, files: batches[index] }) });
+      markCommitted(batches[index]);
+    }
+    return lastResult;
+  }
+  const IDLE_LIMIT = 30 * 60 * 1000, SESSION_PING = 10 * 60 * 1000;
+  let lastActivityAt = Date.now(), idleTimer = 0, idleLogoutRunning = false, lastPointerActivityAt = 0;
+  function scheduleIdleLogout() { clearTimeout(idleTimer); idleTimer = setTimeout(() => { if (state.user) finishIdleLogout(); }, Math.max(0, IDLE_LIMIT - (Date.now() - lastActivityAt))); }
+  function noteActivity(event) {
+    if (!state.user || idleLogoutRunning) return;
+    if (event?.type === 'pointermove' && Date.now() - lastPointerActivityAt < 4000) return;
+    if (event?.type === 'pointermove') lastPointerActivityAt = Date.now();
+    lastActivityAt = Date.now(); scheduleIdleLogout();
+  }
+  async function finishIdleLogout() {
+    if (idleLogoutRunning || !state.user) return;
+    if (Date.now() - lastActivityAt < IDLE_LIMIT) return scheduleIdleLogout();
+    idleLogoutRunning = true; clearTimeout(idleTimer);
+    try {
+      const files = dirtyFiles();
+      if (files.length) {
+        if (!state.repo || !state.branch) throw new Error('Open a GitHub repository to back up these edits.');
+        await commitFiles('backup', state.branch, 'Automatic backup before inactivity sign-out\n\nSaved after 30 minutes without activity.', files);
+      }
+      await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store' });
+      localStorage.removeItem('my-web-unity-sidebar-width'); location.reload();
+    } catch (error) {
+      idleLogoutRunning = false; lastActivityAt = Date.now() - IDLE_LIMIT + 60 * 1000; scheduleIdleLogout();
+      showToast(`Sign-out paused because the backup failed: ${error.message}`);
+    }
+  }
+  function startSessionLifecycle() {
+    lastActivityAt = Date.now(); scheduleIdleLogout();
+    for (const eventName of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'input']) document.addEventListener(eventName, noteActivity, { passive: true });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { if (Date.now() - lastActivityAt >= IDLE_LIMIT) finishIdleLogout(); else scheduleIdleLogout(); } });
+    setInterval(async () => {
+      if (!state.user) return;
+      if (Date.now() - lastActivityAt >= IDLE_LIMIT) return finishIdleLogout();
+      if (document.visibilityState === 'hidden') return;
+      try { const response = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' }); if (!response.ok) throw new Error('Your GitHub session needs to be renewed.'); }
+      catch (error) { showToast(error.message); }
+    }, SESSION_PING);
+  }
   function updateChanges() {
-    const dirty = dirtyFiles(); const root = $('changes'); root.replaceChildren();
-    if (!dirty.length) { const empty = document.createElement('div'); empty.textContent = 'No uncommitted changes'; empty.style.cssText = 'color:#858a97;font-size:11px;padding:10px 0'; root.append(empty); }
-    for (const file of dirty) { const row = document.createElement('div'); row.className = 'change-row'; const badge = document.createElement('span'); badge.className = 'change-badge'; badge.textContent = file.deleted ? 'D' : state.originals.has(file.path) ? 'M' : 'A'; const name = document.createElement('span'); name.className = 'change-file'; name.textContent = file.path; row.append(badge, name); root.append(row); }
-    $('pushNote').textContent = `${dirty.length} file${dirty.length === 1 ? '' : 's'} changed · ${state.branch || '—'} → origin`;
+    const dirty = dirtyFiles();
+    $('pushNote').textContent = dirty.length ? `${dirty.length} changed file${dirty.length === 1 ? '' : 's'} · idle backup enabled` : 'No unsaved changes';
     $('pushBtn').disabled = !dirty.length;
-    $('pushBtn').innerHTML = dirty.length ? '↑ &nbsp; Commit &amp; push' : '✓ &nbsp; Working tree clean';
+    $('pushBtn').textContent = dirty.length ? 'Commit & push' : 'No changes to commit';
     const chosen = [...state.selected]; $('moveSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').disabled = !chosen.length; $('hideSelectedBtn').textContent = chosen.length && chosen.every(filePath => state.hidden.has(filePath)) ? `Restore selected (${chosen.length})` : chosen.length ? `Hide selected (${chosen.length})` : 'Hide selected'; $('toggleHiddenBtn').textContent = state.showHidden ? `Hide hidden (${state.hidden.size})` : `Show hidden (${state.hidden.size})`;
-    document.querySelector('.pushstatus').textContent = dirty.length ? `● ${dirty.length} unsaved change${dirty.length === 1 ? '' : 's'}` : '● Synced to GitHub';
+    const status = document.querySelector('.pushstatus'); if (status) status.textContent = dirty.length ? `● ${dirty.length} unsaved change${dirty.length === 1 ? '' : 's'}` : '● Synced to GitHub';
   }
   function refreshTree() {
     const tree = $('tree'); tree.replaceChildren();
@@ -275,7 +370,9 @@ const modal=document.getElementById('modalBack');document.getElementById('import
   async function openFile(filePath) {
     try {
       if (!/\.(cs|asmdef|asmref|json|csproj|sln|txt|uxml|uss|shader|compute|md|xml|yaml|yml|meta|asset|unity|prefab|mat|anim|controller)$/i.test(filePath)) { showToast('This file is listed, but this editor only opens text-based project files.'); return; }
+      if (monacoEditor && state.active) { state.viewStates.set(state.active, monacoEditor.saveViewState()); state.edits.set(state.active, monacoEditor.getValue()); }
       state.active = filePath; state.activeFolder = filePath.slice(0, filePath.lastIndexOf('/')) || state.assetsRoot;
+      if (!state.openTabs.includes(filePath)) state.openTabs.push(filePath);
       if (!state.selected.has(filePath)) { state.selected.clear(); state.selected.add(filePath); state.lastSelectedPath = filePath; }
       refreshTree();
       let content;
@@ -284,19 +381,17 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         const data = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/file?ref=${encodeURIComponent(state.branch)}&path=${encodeURIComponent(filePath)}`);
         content = data.content; state.originals.set(filePath, content); state.edits.set(filePath, content);
       }
-      setEditorValue(content); setEditorDisabled(false); editor.dataset.path = filePath; if (monacoEditor) { monaco.editor.setModelLanguage(monacoEditor.getModel(), languageForPath(filePath)); validateEditor(); } updateGutter();
-      $('breadcrumb').textContent = filePath; $('tabName').textContent = filePath.split('/').pop();
-      document.querySelector('.crumbline span').textContent = state.repo.full_name;
-      $('resultTitle').textContent = 'Ready to check'; $('resultTag').textContent = state.unityConfigured ? 'READY' : 'NO RUNNER';
+      if (monacoEditor) setActiveModel(filePath, content); else { setEditorValue(content); setEditorDisabled(false); }
+      editor.dataset.path = filePath; updateGutter(); $('breadcrumb').textContent = filePath; renderTabs(); validateEditor();
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
+    if (monacoEditor) monacoEditor.setModel(null);
+    for (const model of state.editorModels.values()) model.dispose(); state.editorModels.clear(); state.viewStates.clear(); state.openTabs = [];
     state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.assetsRoot = 'Assets'; state.activeFolder = 'Assets'; state.expandedFolders = new Set(); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.deleted.clear(); state.selected.clear(); state.lastSelectedPath = ''; state.hidden.clear(); state.showHidden = false; state.active = '';
-    renderRecentCommit(null);
+    renderTabs(); updateChanges();
     document.querySelector('.repo-title span:nth-child(2)').textContent = repo.name;
     document.querySelector('.repo-sub').textContent = `${repo.owner} / ${repo.name}`;
-    document.querySelector('.top-project span:nth-child(2)').textContent = repo.name;
-    document.querySelector('.branch-pill').textContent = `⌥ ${repo.default_branch}`;
     try {
       const [branchNames, tree] = await Promise.all([
         api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/branches`),
@@ -311,10 +406,9 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       const assetsPrefixForHidden = `${state.assetsRoot}/`.toLowerCase(); state.hidden = new Set(state.files.filter(file => file.path.toLowerCase().startsWith(assetsPrefixForHidden) && /\.(asset|meta)$/i.test(file.path)).map(file => file.path));
       if (tree.truncated) showToast('GitHub returned a partial file tree for this large repository.');
       refreshTree(); updateChanges();
-      await api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/commits?ref=${encodeURIComponent(state.branch)}`).then(commits => renderRecentCommit(commits[0])).catch(error => { renderRecentCommit(null); showToast(`Recent commit could not load: ${error.message}`); });
       const assetsPrefix = `${state.assetsRoot}/`;
       const first = state.files.find(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()) && /\.cs$/i.test(file.path)) || state.files.find(file => file.path.toLowerCase().startsWith(assetsPrefix.toLowerCase()) && /\.(json|txt|asmdef)$/i.test(file.path));
-      if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; $('tabName').textContent = repo.name; }
+      if (first) await openFile(first.path); else { setEditorValue(''); setEditorDisabled(true); $('breadcrumb').textContent = 'No editable files found'; }
     } catch (error) { showToast(error.message); }
   }
   function openCreateFile() {
@@ -333,11 +427,11 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       const filename = filePath.split('/').pop(); let content = '';
       if (/\.cs$/i.test(filePath)) { const className = filename.replace(/\.cs$/i, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=\d)/, '_') || 'NewScript'; content = `using UnityEngine;\n\npublic class ${className} : MonoBehaviour\n{\n}\n`; }
       else if (/\.(json|asmdef|asmref)$/i.test(filePath)) content = '{}\n';
-      state.files.push({ path: filePath, type: 'blob', size: content.length }); state.originals.delete(filePath); state.edits.set(filePath, content); state.active = filePath;
+      if (monacoEditor && state.active) state.viewStates.set(state.active, monacoEditor.saveViewState());
+      state.files.push({ path: filePath, type: 'blob', size: content.length }); state.originals.delete(filePath); state.edits.set(filePath, content); state.active = filePath; state.openTabs.push(filePath);
       state.fileSearch = ''; $('fileSearch').value = ''; modal.classList.remove('show'); refreshTree();
-      setEditorValue(content); setEditorDisabled(false); editor.dataset.path = filePath;
-      if (monacoEditor) { monaco.editor.setModelLanguage(monacoEditor.getModel(), languageForPath(filePath)); validateEditor(); }
-      $('breadcrumb').textContent = filePath; $('tabName').textContent = filename; document.querySelector('.crumbline span').textContent = state.repo.full_name;
+      if (monacoEditor) setActiveModel(filePath, content); else { setEditorValue(content); setEditorDisabled(false); }
+      editor.dataset.path = filePath; $('breadcrumb').textContent = filePath; renderTabs(); validateEditor();
       updateGutter(); updateChanges(); showToast(`Created ${filePath} · commit to add it to GitHub.`);
     });
     $('newFilePath').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); $('createFileConfirm').click(); } });
@@ -379,9 +473,10 @@ const modal=document.getElementById('modalBack');document.getElementById('import
           state.edits.delete(oldPath); state.originals.delete(newPath); state.edits.set(newPath, contents[index]);
           state.files = state.files.filter(item => item.path !== oldPath); state.files.push({ ...file, path: newPath, size: contents[index].length });
           if (state.hidden.delete(oldPath)) state.hidden.add(newPath);
-          if (state.active === oldPath) { state.active = newPath; state.activeFolder = target; editor.dataset.path = newPath; $('breadcrumb').textContent = newPath; $('tabName').textContent = newPath.split('/').pop(); }
+          if (state.openTabs.includes(oldPath)) { state.openTabs[state.openTabs.indexOf(oldPath)] = newPath; const model = state.editorModels.get(oldPath); if (model) { state.editorModels.delete(oldPath); state.editorModels.set(newPath, model); } const view = state.viewStates.get(oldPath); if (view) { state.viewStates.delete(oldPath); state.viewStates.set(newPath, view); } }
+          if (state.active === oldPath) { state.active = newPath; state.activeFolder = target; editor.dataset.path = newPath; $('breadcrumb').textContent = newPath; }
         });
-        state.selected.clear(); state.lastSelectedPath = ''; state.activeFolder = target; state.expandedFolders.add(target); modal.classList.remove('show'); refreshTree(); updateChanges(); showToast(`Moved ${moves.length} file${moves.length === 1 ? '' : 's'} · commit to save path changes.`);
+        state.selected.clear(); state.lastSelectedPath = ''; state.activeFolder = target; state.expandedFolders.add(target); modal.classList.remove('show'); refreshTree(); renderTabs(); updateChanges(); showToast(`Moved ${moves.length} file${moves.length === 1 ? '' : 's'} · commit to save path changes.`);
       } catch (moveError) { fail(moveError.message); button.disabled = false; button.textContent = 'Move files →'; }
     });
     modal.classList.add('show');
@@ -415,7 +510,14 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     if (!session.authenticated) { showGate(new URLSearchParams(location.search).has('auth') ? 'GitHub sign-in did not complete. Please try again.' : new URLSearchParams(location.search).has('setup') ? 'Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and SESSION_SECRET in .env, then restart the server.' : ''); return; }
     state.unityConfigured = session.unityConfigured;
     state.user = session.user || null;
+    startSessionLifecycle();
     showWorkspace();
+    $('signOutBtn').addEventListener('click', async () => {
+      if (dirtyFiles().length && !window.confirm('Sign out now and discard your uncommitted edits? Automatic backup is only made after 30 minutes of inactivity.')) return;
+      $('signOutBtn').disabled = true; $('signOutBtn').textContent = 'Signing out…';
+      try { const result = await fetch('/api/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store' }).then(response => response.json()); if (!result.revoked) showToast('Local credentials cleared, but GitHub did not confirm revocation.'); }
+      finally { localStorage.removeItem('my-web-unity-sidebar-width'); location.reload(); }
+    });
     const resizer = $('sidebarResizer');
     const savedWidth = Number(localStorage.getItem('my-web-unity-sidebar-width'));
     if (savedWidth >= 200 && savedWidth <= 520) document.querySelector('.layout').style.setProperty('--sidebar-width', `${savedWidth}px`);
@@ -430,42 +532,23 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     $('moveSelectedBtn').addEventListener('click', moveSelectedFiles); $('hideSelectedBtn').addEventListener('click', hideOrRestoreSelected); $('toggleHiddenBtn').addEventListener('click', () => { state.showHidden = !state.showHidden; refreshTree(); updateChanges(); });
     initializeMonaco();
     refreshTree();
-    const avatar = document.querySelector('.avatar'); avatar.textContent = (session.user?.login || 'GH').slice(0, 2).toUpperCase(); avatar.title = session.user?.login || 'GitHub';
-    document.querySelector('.saved').innerHTML = '<i></i>' + esc(session.user?.login || 'GitHub connected');
-    const logout = document.createElement('button'); logout.className = 'icon-btn'; logout.title = 'Sign out'; logout.textContent = '↪'; logout.addEventListener('click', async () => { await api('/api/logout', { method: 'POST' }); location.reload(); }); document.querySelector('.top-right').prepend(logout);
     await api('/api/repos').then(repos => { state.repos = repos; if (repos.length) return openRepoPicker(); showToast('No repositories found for this GitHub account.'); }).catch(error => showToast(error.message));
     const repoCard = document.querySelector('.repo-card'); repoCard.style.cursor = 'pointer'; repoCard.title = 'Current GitHub project · click to choose a project'; repoCard.addEventListener('click', openRepoPicker);
     editor.addEventListener('input', () => { if (!state.active) return; state.edits.set(state.active, editor.value); updateGutter(); updateChanges(); });
     editor.addEventListener('scroll', () => { $('gutter').scrollTop = editor.scrollTop; });
     editor.addEventListener('keydown', event => { if (event.key === 'Tab') { event.preventDefault(); const start = editor.selectionStart; editor.setRangeText('    ', start, editor.selectionEnd, 'end'); editor.dispatchEvent(new Event('input')); } });
-    const checkButton = $('compileBtn'); const checkClone = checkButton.cloneNode(true); checkButton.replaceWith(checkClone);
-    checkClone.textContent = '▶  Check scripts'; checkClone.addEventListener('click', async () => {
-      if (!state.repo) return showToast('Open a GitHub repository first.');
-      checkClone.disabled = true; checkClone.textContent = '◌  Checking Unity project…'; $('resultTitle').textContent = 'Unity check running'; $('resultTag').textContent = 'RUNNING';
-      try {
-        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/check`, { method: 'POST', body: JSON.stringify({ branch: state.branch, files: dirtyFiles() }) });
-        $('resultTitle').textContent = result.ok ? 'Unity check passed' : 'Unity check found errors'; $('resultTag').textContent = result.ok ? 'PASSED' : 'FAILED'; $('resultTag').style.color = result.ok ? 'var(--green)' : 'var(--red)';
-        const details = (result.errors || []).slice(0, 10); $('resultBody').replaceChildren();
-        for (const item of details) { const line = document.createElement('div'); line.className = 'result-row'; line.textContent = item; $('resultBody').append(line); }
-        if (!details.length) { const line = document.createElement('div'); line.className = 'result-row'; line.textContent = result.ok ? '✓ C# compilation succeeded' : `Unity exited with code ${result.exitCode}`; $('resultBody').append(line); }
-        const foot = document.createElement('div'); foot.className = 'result-foot'; foot.textContent = `${result.warnings?.length || 0} warnings · Unity batch mode`; $('resultBody').append(foot);
-        showToast(result.ok ? 'Unity script check passed.' : 'Unity script check reported errors.');
-      } catch (error) { $('resultTitle').textContent = 'Unity check unavailable'; $('resultTag').textContent = 'ERROR'; $('resultTag').style.color = 'var(--red)'; $('resultBody').textContent = error.message; showToast(error.message); }
-      finally { checkClone.disabled = false; checkClone.textContent = '▶  Check scripts'; }
-    });
     const pushButton = $('pushBtn'); pushButton.replaceWith(pushButton.cloneNode(true));
     $('pushBtn').addEventListener('click', async () => {
       const files = dirtyFiles(); if (!files.length) return;
-      const message = $('commitMessage').value.trim(); if (!message) { showToast('Add a commit message first.'); $('commitMessage').focus(); return; }
+      const summary = $('commitMessage').value.trim(), description = $('commitDescription').value.trim(); if (!summary) { showToast('Add a commit summary first.'); $('commitMessage').focus(); return; }
+      const message = description ? `${summary}\n\n${description}` : summary;
       $('pushBtn').disabled = true; $('pushBtn').textContent = '◌  Committing…';
       try {
-        const result = await api(`/api/repos/${encodeURIComponent(state.repo.owner)}/${encodeURIComponent(state.repo.name)}/commit`, { method: 'POST', body: JSON.stringify({ branch: state.branch, message, files }) });
-        for (const file of files) { if (file.deleted) { state.originals.delete(file.path); state.edits.delete(file.path); } else state.originals.set(file.path, file.content); } state.deleted.clear(); updateChanges(); renderRecentCommit({ sha: result.sha, url: result.url, message, author: state.user?.login, date: new Date().toISOString() }); showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
+        const result = await commitFiles(state.branch, state.branch, message, files);
+        $('commitMessage').value = ''; $('commitDescription').value = ''; showToast(`Committed to GitHub · ${result.sha.slice(0, 7)}`);
       } catch (error) { showToast(error.message); }
       finally { updateChanges(); }
     });
-    $('discardBtn').addEventListener('click', () => { const restore = [...state.deleted.values()]; for (const file of restore) if (!state.files.some(item => item.path === file.path)) state.files.push(file); state.deleted.clear(); let removedActive = false; for (const [filePath] of [...state.edits]) { if (!state.originals.has(filePath)) { if (state.active === filePath) removedActive = true; state.edits.delete(filePath); state.files = state.files.filter(item => item.path !== filePath); } else state.edits.set(filePath, state.originals.get(filePath)); } if (removedActive) { state.active = ''; setEditorValue(''); setEditorDisabled(true); } else if (state.active) setEditorValue(state.edits.get(state.active) || ''); refreshTree(); updateGutter(); updateChanges(); validateEditor(); showToast('Local edits discarded.'); });
-    if (!state.unityConfigured) { $('compileBtn').title = 'Set UNITY_EDITOR_PATH on the server to enable checks'; }
     updateChanges();
   }
   let uiAudio = null, lastHoverSound = 0;
