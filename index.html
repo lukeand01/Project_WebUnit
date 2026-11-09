@@ -178,8 +178,11 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     if (!monacoEditor) return;
     const model = monacoEditor.getModel(); if (!model) return;
     const markers = languageForPath(state.active) === 'csharp' ? validateCSharp(model.getValue()) : [];
-    monaco.editor.setModelMarkers(model, 'my-web-unity-csharp', markers);
-    const status = $('diagnosticStatus'); status.textContent = `● ${markers.length} error${markers.length === 1 ? '' : 's'}`; status.classList.toggle('has-errors', markers.length > 0); status.classList.remove('has-warnings');
+    const allMarkers = [...markers, ...lspMarkersFor(model.uri.toString())];
+    monaco.editor.setModelMarkers(model, 'my-web-unity-csharp', allMarkers);
+    const errors = allMarkers.filter(marker => marker.severity === monaco.MarkerSeverity.Error).length;
+    const warnings = allMarkers.filter(marker => marker.severity === monaco.MarkerSeverity.Warning).length;
+    const status = $('diagnosticStatus'); status.textContent = `● ${errors} error${errors === 1 ? '' : 's'}${warnings ? ` · ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`; status.classList.toggle('has-errors', errors > 0); status.classList.toggle('has-warnings', warnings > 0);
     applySyntaxDecorations();
   }
   function applySyntaxDecorations() {
@@ -223,6 +226,106 @@ const modal=document.getElementById('modalBack');document.getElementById('import
     }
     return items;
   }
+  let lspSocket = null;
+  let lspReady = false;
+  let lspRequestId = 0;
+  let lspActiveUri = '';
+  const lspPending = new Map();
+  const lspDocuments = new Map();
+  const lspDiagnostics = new Map();
+  function sendLsp(message) {
+    if (!lspSocket || lspSocket.readyState !== WebSocket.OPEN) return false;
+    lspSocket.send(JSON.stringify(message)); return true;
+  }
+  function notifyLsp(method, params) { sendLsp({ jsonrpc: '2.0', method, params }); }
+  function requestLsp(method, params, timeoutMs = 7000) {
+    if (!lspSocket || lspSocket.readyState !== WebSocket.OPEN || (!lspReady && method !== 'initialize')) return Promise.resolve(null);
+    const id = ++lspRequestId;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { lspPending.delete(id); resolve(null); }, timeoutMs);
+      lspPending.set(id, message => { clearTimeout(timer); resolve(message?.error ? null : message?.result ?? null); });
+      if (!sendLsp({ jsonrpc: '2.0', id, method, params })) { clearTimeout(timer); lspPending.delete(id); resolve(null); }
+    });
+  }
+  function lspUri(filePath) { return `inmemory://forge/${encodeURIComponent(filePath)}`; }
+  function closeLsp() {
+    if (lspReady && lspActiveUri) notifyLsp('textDocument/didClose', { textDocument: { uri: lspActiveUri } });
+    lspReady = false; lspActiveUri = ''; lspDocuments.clear(); lspDiagnostics.clear();
+    for (const resolve of lspPending.values()) resolve(null); lspPending.clear();
+    if (lspSocket) { lspSocket.onclose = null; lspSocket.onerror = null; lspSocket.close(); lspSocket = null; }
+  }
+  function connectLsp() {
+    closeLsp();
+    if (!state.repo || !state.branch || !window.WebSocket) return;
+    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const query = new URLSearchParams({ owner: state.repo.owner, repo: state.repo.name, branch: state.branch });
+    const socket = new WebSocket(`${scheme}//${location.host}/api/lsp?${query}`);
+    lspSocket = socket;
+    socket.onopen = async () => {
+      if (lspSocket !== socket) return;
+      const result = await requestLsp('initialize', {
+        processId: null, rootPath: null, rootUri: 'inmemory://forge/',
+        clientInfo: { name: 'WebUnity Monaco', version: '1.0.0' },
+        workspaceFolders: [{ uri: 'inmemory://forge/', name: `${state.repo.owner}/${state.repo.name}` }],
+        capabilities: {
+          textDocument: { completion: { completionItem: { snippetSupport: true, documentationFormat: ['markdown', 'plaintext'] } }, synchronization: { dynamicRegistration: false, didSave: true } },
+          workspace: { workspaceFolders: true, configuration: true, applyEdit: true }
+        },
+        initializationOptions: { autoLoadProjects: 100 }
+      }, 120000);
+      if (lspSocket !== socket || !result) { if (lspSocket === socket) showToast('Roslyn could not initialize; basic C# suggestions remain available.'); socket.close(); return; }
+      lspReady = true;
+      notifyLsp('initialized', {});
+      syncLspActiveDocument();
+      if (monacoEditor) validateEditor();
+    };
+    socket.onmessage = event => {
+      let message; try { message = JSON.parse(event.data); } catch { return; }
+      if (message.type === 'error') { showToast(message.message || 'Roslyn language server error.'); return; }
+      if (message.id !== undefined && lspPending.has(message.id)) { const resolve = lspPending.get(message.id); lspPending.delete(message.id); resolve(message); return; }
+      if (message.method === 'textDocument/publishDiagnostics') {
+        const params = message.params || {}; lspDiagnostics.set(params.uri, params.diagnostics || []);
+        if (monacoEditor?.getModel()?.uri.toString() === params.uri) validateEditor();
+      }
+    };
+    socket.onerror = () => { if (lspSocket === socket) showToast('Roslyn autocomplete is unavailable; basic C# suggestions remain available.'); };
+    socket.onclose = () => { if (lspSocket === socket) { lspReady = false; lspActiveUri = ''; lspDocuments.clear(); for (const resolve of lspPending.values()) resolve(null); lspPending.clear(); } };
+  }
+  function syncLspActiveDocument() {
+    if (!lspReady || !monacoEditor) return;
+    const model = monacoEditor.getModel();
+    const nextUri = model && languageForPath(state.active) === 'csharp' ? model.uri.toString() : '';
+    lspActiveUri = nextUri;
+    if (!model || !nextUri) return;
+    const documents = [...state.edits.entries()].filter(([filePath]) => /\.cs$/i.test(filePath));
+    if (!documents.some(([filePath]) => lspUri(filePath) === nextUri)) documents.push([state.active, model.getValue()]);
+    for (const [filePath, text] of documents) {
+      const uri = lspUri(filePath);
+      if (lspDocuments.has(uri)) continue;
+      lspDocuments.set(uri, 1);
+      notifyLsp('textDocument/didOpen', { textDocument: { uri, languageId: 'csharp', version: 1, text } });
+    }
+  }
+  function changeLspDocument() {
+    if (!lspReady || !monacoEditor) return;
+    const model = monacoEditor.getModel(), uri = model?.uri.toString();
+    if (!model || !uri || uri !== lspActiveUri || !lspDocuments.has(uri)) return;
+    const version = lspDocuments.get(uri) + 1; lspDocuments.set(uri, version);
+    notifyLsp('textDocument/didChange', { textDocument: { uri, version }, contentChanges: [{ text: model.getValue() }] });
+  }
+  function lspMarkersFor(uri) {
+    const severity = monaco.MarkerSeverity, levels = { 1: severity.Error, 2: severity.Warning, 3: severity.Info, 4: severity.Hint };
+    return (lspDiagnostics.get(uri) || []).map(item => ({ severity: levels[item.severity] || severity.Error, message: item.message || 'C# diagnostic', source: item.source || 'Roslyn', code: item.code, startLineNumber: (item.range?.start?.line ?? 0) + 1, startColumn: (item.range?.start?.character ?? 0) + 1, endLineNumber: (item.range?.end?.line ?? item.range?.start?.line ?? 0) + 1, endColumn: (item.range?.end?.character ?? item.range?.start?.character ?? 0) + 1 }));
+  }
+  function toMonacoCompletion(item, fallbackRange, kinds) {
+    const kindNames = { 1:'Text', 2:'Method', 3:'Function', 4:'Constructor', 5:'Field', 6:'Variable', 7:'Class', 8:'Interface', 9:'Module', 10:'Property', 11:'Unit', 12:'Value', 13:'Enum', 14:'Keyword', 15:'Snippet', 16:'Color', 17:'File', 18:'Reference', 19:'Folder', 20:'EnumMember', 21:'Constant', 22:'Struct', 23:'Event', 24:'Operator', 25:'TypeParameter' };
+    const edit = item.textEdit?.range;
+    const range = edit ? new monaco.Range(edit.start.line + 1, edit.start.character + 1, edit.end.line + 1, edit.end.character + 1) : fallbackRange;
+    const result = { label: item.label, kind: kinds[kindNames[item.kind] || 'Text'], detail: item.detail || item.documentation?.value || item.documentation || '', insertText: item.textEdit?.newText || item.insertText || item.label, filterText: item.filterText || item.label, sortText: item.sortText, range };
+    if (item.insertTextFormat === 2) result.insertTextRules = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
+    if (item.additionalTextEdits) result.additionalTextEdits = item.additionalTextEdits.map(editItem => ({ range: new monaco.Range(editItem.range.start.line + 1, editItem.range.start.character + 1, editItem.range.end.line + 1, editItem.range.end.character + 1), text: editItem.newText }));
+    return result;
+  }
   function initializeMonaco() {
     if (typeof window.require !== 'function') { showToast('Monaco could not load; the basic editor is still available.'); return; }
     const baseUrl = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/';
@@ -253,19 +356,25 @@ const modal=document.getElementById('modalBack');document.getElementById('import
       monaco.editor.setTheme('my-web-unity-dark'); $('monacoHost').hidden = false; $('gutter').hidden = true; editor.hidden = true; $('editor').classList.add('monaco-active');
       if (state.active) { const filePath = state.active, model = monaco.editor.createModel(editor.value, languageForPath(filePath), monaco.Uri.parse(`inmemory://forge/${encodeURIComponent(filePath)}`)); state.editorModels.set(filePath, model); monacoEditor.setModel(model); }
       const completionKinds = monaco.languages.CompletionItemKind;
-      const suggestionProvider = monaco.languages.registerCompletionItemProvider('csharp', { triggerCharacters: [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._['], provideCompletionItems(model, position) {
+      const suggestionProvider = monaco.languages.registerCompletionItemProvider('csharp', { triggerCharacters: [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._['], async provideCompletionItems(model, position) {
         const word = model.getWordUntilPosition(position), range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+        if (lspReady && lspDocuments.has(model.uri.toString())) {
+          const completion = await requestLsp('textDocument/completion', { textDocument: { uri: model.uri.toString() }, position: { line: position.lineNumber - 1, character: position.column - 1 } });
+          const items = Array.isArray(completion) ? completion : completion?.items;
+          if (items?.length) return { suggestions: items.filter(item => item && typeof item.label === 'string').map(item => toMonacoCompletion(item, range, completionKinds)) };
+        }
         const before = model.getLineContent(position.lineNumber).slice(0, position.column - 1), member = before.match(/([A-Za-z_]\w*)\.$/);
         const members = { transform: [['position','property','World position'],['localPosition','property','Local position'],['rotation','property','World rotation'],['localScale','property','Local scale'],['Translate','method','Move this Transform']], gameObject: [['transform','property','Transform component'],['name','property','Object name'],['SetActive','method','Enable or disable this object'],['GetComponent','method','Get a component']], debug: [['Log','method','Write to the Unity console'],['LogWarning','method','Write a warning'],['LogError','method','Write an error']], time: [['deltaTime','property','Time since the last frame'],['time','property','Time since the game started'],['fixedDeltaTime','property','Fixed physics timestep']], mathf: [['Clamp','method','Clamp a value'],['Abs','method','Absolute value'],['Max','method','Maximum value'],['Min','method','Minimum value'],['Lerp','method','Interpolate values']] };
         let entries = projectCompletions(); if (member && members[member[1].toLowerCase()]) entries = members[member[1].toLowerCase()];
         const suggestions = entries.filter(([label]) => typeof label === 'string' && label.trim()).map(([label, kind, detail], index) => ({ label, kind: completionKinds[kind === 'class' ? 'Class' : kind === 'method' ? 'Method' : kind === 'field' ? 'Field' : kind === 'keyword' ? 'Keyword' : 'Property'], detail, insertText: label, filterText: label, sortText: String(index).padStart(4, '0'), range, rangeBehavior: monaco.languages.CompletionItemRangeKind ? monaco.languages.CompletionItemRangeKind.Expand : undefined }));
         return { suggestions };
       } });
-      monacoEditor.onDidChangeModelContent(() => { if (!state.active) return; state.edits.set(state.active, monacoEditor.getValue()); updateGutter(); updateChanges(); validateEditor(); });
+      monacoEditor.onDidChangeModelContent(() => { if (!state.active) return; state.edits.set(state.active, monacoEditor.getValue()); changeLspDocument(); updateGutter(); updateChanges(); validateEditor(); });
       const suggestionObserver = new MutationObserver(() => revealSuggestionText());
       suggestionObserver.observe($('monacoHost'), { childList: true, subtree: true });
       monacoEditor.onDidChangeCursorPosition(event => { $('lnStat').textContent = event.position.lineNumber; });
-      monacoEditor.onDidChangeModel(() => validateEditor());
+      monacoEditor.onDidChangeModel(() => { syncLspActiveDocument(); validateEditor(); });
+      syncLspActiveDocument();
       monacoEditor.layout(); validateEditor();
     }, error => { console.warn('Monaco failed to load; continuing with the basic text editor.', error); });
   }
@@ -401,10 +510,12 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         content = data.content; state.originals.set(filePath, content); state.edits.set(filePath, content);
       }
       if (monacoEditor) setActiveModel(filePath, content); else { setEditorValue(content); setEditorDisabled(false); }
+      if (monacoEditor) syncLspActiveDocument();
       editor.dataset.path = filePath; updateGutter(); $('breadcrumb').textContent = filePath; renderTabs(); validateEditor();
     } catch (error) { showToast(error.message); }
   }
   async function chooseRepo(repo) {
+    closeLsp();
     if (monacoEditor) monacoEditor.setModel(null);
     for (const model of state.editorModels.values()) model.dispose(); state.editorModels.clear(); state.viewStates.clear(); state.openTabs = [];
     state.repo = repo; state.branch = repo.default_branch; state.branches = []; state.files = []; state.assetsRoot = 'Assets'; state.activeFolder = 'Assets'; state.expandedFolders = new Set(); state.fileSearch = ''; $('fileSearch').value = ''; state.edits.clear(); state.originals.clear(); state.deleted.clear(); state.selected.clear(); state.lastSelectedPath = ''; state.hidden.clear(); state.showHidden = false; state.active = '';
@@ -418,6 +529,7 @@ const modal=document.getElementById('modalBack');document.getElementById('import
         api(`/api/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/tree?ref=${encodeURIComponent(repo.default_branch)}`)
       ]);
       state.branches = branchNames; state.files = tree.tree;
+      connectLsp();
       const paths = new Set(state.files.map(file => file.path.toLowerCase()));
       const candidates = [...new Set(state.files.map(file => { const parts = file.path.split('/'); const assetsIndex = parts.findIndex(part => part.toLowerCase() === 'assets'); return assetsIndex >= 0 ? parts.slice(0, assetsIndex + 1).join('/') : null; }).filter(Boolean))];
       const scoreProjectRoot = assetsPath => { const projectRoot = assetsPath.slice(0, -(assetsPath.split('/').pop().length + 1)); const prefix = projectRoot ? `${projectRoot}/` : ''; return Number([...paths].some(path => path.startsWith(`${prefix}packages/`))) + Number([...paths].some(path => path.startsWith(`${prefix}projectsettings/`))); };

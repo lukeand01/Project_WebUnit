@@ -24,3 +24,13 @@ The project includes a Render Blueprint (`render.yaml`) for the Node.js web app.
 The Render service provides the login page, GitHub repository browsing, editing, and commits. Unity checks also require an installed and activated Editor on the backend host. The included free Render service does not install Unity; set `UNITY_EDITOR_PATH` only if the host has an Editor available. The current session store is in memory, so signing in again is required after a server restart; use a persistent session store before running multiple server instances.
 
 The browser never receives the GitHub access token. This starter keeps sessions in the backend process and uses GitHub's REST Git Database API to create a commit on the selected branch.
+
+## Roslyn C# autocomplete
+
+The Render Blueprint adds a private `webunity-roslyn` service. It runs Microsoft's Roslyn language server in a .NET 10 container; the public Node service authenticates the browser's WebSocket and relays LSP messages to that private worker. The worker clones the selected GitHub repository and branch with the signed-in user's token, starts one isolated language-server process for the workspace, and deletes the temporary checkout when the WebSocket closes. The token stays on the server and is never sent to the browser.
+
+The worker has a `1c-2g` compute plan and is a paid Render service. Keep it private and configure `INTERNAL_SECRET` only through Render's generated environment value. The web service receives the worker host and secret through `fromService` references. Do not sync the new Blueprint service until you are ready to add the worker and its Render plan cost.
+
+The worker automatically loads checked-in `.sln`/`.csproj` files. If a Unity repository does not include generated project files, the worker creates a temporary SDK project for its C# sources. To enable Unity API completion in that case, set `UNITY_REFERENCES_ROOT` on the worker to a directory containing the matching Unity Editor's `Editor/Data/Managed` assemblies. The worker reads the Unity version from `ProjectSettings/ProjectVersion.txt` and looks for the matching version subdirectory. If those assemblies are unavailable, completion still covers the project and .NET types, but Unity-specific types may be unresolved. Generated Unity project files or references must correspond to the project's Unity version.
+
+The Roslyn language-server tool is installed as a prerelease in the worker image, so rebuild and review the image when updating it. The worker allows two concurrent workspaces by default; set `MAX_LSP_SESSIONS` to change that limit.

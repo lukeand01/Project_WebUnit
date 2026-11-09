@@ -4,6 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
+const { WebSocket, WebSocketServer } = require('ws');
 
 loadEnv();
 const PORT = Number(process.env.PORT || 3000);
@@ -17,6 +18,9 @@ const ROOT = __dirname;
 const oauthStates = new Map();
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 const GITHUB_API = 'https://api.github.com';
+const ROSLYN_WORKER_URL = process.env.ROSLYN_WORKER_URL;
+const ROSLYN_WORKER_SECRET = process.env.ROSLYN_WORKER_SECRET || '';
+const browserSockets = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
 
 function loadEnv() {
   const envFile = path.join(__dirname, '.env');
@@ -307,6 +311,76 @@ const server = http.createServer((req, res) => {
     console.error(`${req.method} ${req.url}: ${error.message}`);
     if (!res.headersSent) send(res, error.status || 500, { error: error.status ? error.message : (error.status ? error.message : 'Request failed.') });
     else res.end();
+  });
+});
+
+function rejectUpgrade(socket, status, message) {
+  const body = JSON.stringify({ error: message });
+  const reason = status === 401 ? 'Unauthorized' : status === 400 ? 'Bad Request' : 'Service Unavailable';
+  socket.write(`HTTP/1.1 ${status} ${reason}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+  socket.destroy();
+}
+
+function validBranchName(value) {
+  return typeof value === 'string' && value.length <= 200 && /^[A-Za-z0-9_./-]+$/.test(value) && !value.startsWith('-') &&
+    !value.includes('..') && !value.includes('//') && !value.endsWith('/') && value.split('/').every(part => part && part !== '.' && !part.startsWith('.'));
+}
+
+server.on('upgrade', (req, socket, head) => {
+  void (async () => {
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (url.pathname !== '/api/lsp') { socket.destroy(); return; }
+    const origin = req.headers.origin;
+    if (origin) {
+      try { if (new URL(origin).host !== req.headers.host) return rejectUpgrade(socket, 401, 'Cross-origin WebSocket connections are not allowed.'); }
+      catch { return rejectUpgrade(socket, 401, 'Invalid WebSocket origin.'); }
+    }
+    const owner = url.searchParams.get('owner') || '';
+    const repo = url.searchParams.get('repo') || '';
+    const branch = url.searchParams.get('branch') || '';
+    if (!validSlug(owner) || !validSlug(repo) || !validBranchName(branch)) return rejectUpgrade(socket, 400, 'Invalid repository workspace.');
+    if (!ROSLYN_WORKER_URL || !ROSLYN_WORKER_SECRET) return rejectUpgrade(socket, 503, 'The Roslyn language server is not configured on this deployment.');
+
+    const session = decodeSession(cookieValue(req, 'forge_session'));
+    if (!session?.accessToken || !session.user || session.expiresAt <= Date.now() || (session.accessTokenExpiresAt && session.accessTokenExpiresAt <= Date.now())) return rejectUpgrade(socket, 401, 'Your GitHub session expired. Sign in again.');
+
+    const workerHost = ROSLYN_WORKER_URL.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    const worker = new WebSocket(`ws://${workerHost}:10000/lsp`, {
+      headers: {
+        Authorization: `Bearer ${ROSLYN_WORKER_SECRET}`,
+        'X-WebUnity-Owner': owner,
+        'X-WebUnity-Repo': repo,
+        'X-WebUnity-Branch': branch,
+        'X-WebUnity-GitHub-Token': session.accessToken
+      },
+      maxPayload: 2 * 1024 * 1024,
+      handshakeTimeout: 120000
+    });
+    let upgraded = false;
+    const timer = setTimeout(() => { if (!upgraded) { worker.terminate(); rejectUpgrade(socket, 503, 'The Roslyn workspace did not start in time.'); } }, 125000);
+    worker.once('open', () => {
+      if (socket.destroyed) { worker.close(); clearTimeout(timer); return; }
+      upgraded = true; clearTimeout(timer);
+      browserSockets.handleUpgrade(req, socket, head, browser => {
+        const relay = (from, to) => from.on('message', (data, binary) => { if (to.readyState === WebSocket.OPEN) to.send(data, { binary }); });
+        relay(browser, worker); relay(worker, browser);
+        browser.once('close', () => worker.close());
+        worker.once('close', () => browser.close());
+        browser.once('error', () => worker.terminate());
+        worker.once('error', () => browser.close(1011, 'Roslyn language server disconnected.'));
+      });
+    });
+    worker.once('unexpected-response', (_request, response) => {
+      clearTimeout(timer);
+      rejectUpgrade(socket, 503, 'The Roslyn worker could not open this workspace.');
+    });
+    worker.once('error', error => {
+      clearTimeout(timer);
+      if (!upgraded && !socket.destroyed) rejectUpgrade(socket, 503, `Could not connect to the Roslyn worker: ${error.message}`);
+    });
+  })().catch(error => {
+    console.error(`Language server WebSocket setup failed: ${error.message}`);
+    if (!socket.destroyed) rejectUpgrade(socket, 503, 'Could not start the C# language server.');
   });
 });
 server.listen(PORT, () => console.log(`Forge is listening at http://localhost:${PORT}`));

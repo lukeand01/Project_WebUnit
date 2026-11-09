@@ -13,3 +13,24 @@ services:
         generateValue: true
       - key: COOKIE_SECURE
         value: true
+      - key: ROSLYN_WORKER_URL
+        fromService:
+          type: pserv
+          name: webunity-roslyn
+          property: host
+      - key: ROSLYN_WORKER_SECRET
+        fromService:
+          type: pserv
+          name: webunity-roslyn
+          envVarKey: INTERNAL_SECRET
+  - type: pserv
+    name: webunity-roslyn
+    runtime: docker
+    plan: 1c-2g
+    dockerfilePath: ./lsp/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: INTERNAL_SECRET
+        generateValue: true
